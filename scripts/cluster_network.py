@@ -375,6 +375,23 @@ def busmap_for_gadm_clusters(inputs, n, gadm_layer_id, geo_crs, country_list):
 
     return busmap
 
+def busmap_for_subregion_clusters(inputs, n, gadm_layer_id, geo_crs, country_list):
+
+    buses = locate_bus(
+        n.buses,
+        country_list,
+        gadm_layer_id,
+        inputs.subregion_shapes,
+        gadm_clustering=True,
+    )
+
+    buses["gadm_subnetwork"] = (
+        buses["gadm_{}".format(gadm_layer_id)] + "_" + buses["carrier"].astype(str)
+    )
+    busmap = buses["gadm_subnetwork"]
+
+    return busmap
+
 
 def busmap_for_n_clusters(
     inputs,
@@ -555,6 +572,10 @@ def clustering_for_n_clusters(
             busmap = busmap_for_gadm_clusters(
                 inputs, n, gadm_layer_id, geo_crs, country_list
             )
+        elif subregion: # config["subregion"]["define_by_gadm"]:
+            busmap = busmap_for_subregion_clusters(
+                inputs, n, gadm_layer_id, geo_crs, country_list
+            )
         else:
             busmap = busmap_for_n_clusters(
                 inputs,
@@ -622,7 +643,7 @@ if __name__ == "__main__":
         from _helpers import mock_snakemake
 
         snakemake = mock_snakemake(
-            "cluster_network", network="elec", simpl="", clusters="4"
+            "cluster_network", network="elec", simpl="", clusters="3flex"
         )
     configure_logging(snakemake)
 
@@ -631,6 +652,7 @@ if __name__ == "__main__":
     n = pypsa.Network(inputs.network)
 
     alternative_clustering = snakemake.params.cluster_options["alternative_clustering"]
+    subregion = snakemake.params.subregion["define_by_gadm"]
     distribution_cluster = snakemake.params.cluster_options["distribute_cluster"]
     gadm_layer_id = snakemake.params.build_shape_options["gadm_layer_id"]
     focus_weights = snakemake.params.get("focus_weights", None)

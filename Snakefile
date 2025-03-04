@@ -611,6 +611,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             countries=config["countries"],
             cluster_options=config["cluster_options"],
             focus_weights=config.get("focus_weights", None),
+            subregion=config["subregion"],
             #custom_busmap=config["enable"].get("custom_busmap", False)
         input:
             network="networks/" + RDIR + "elec_s{simpl}.nc",
@@ -626,6 +627,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             #To use: downlaod file from the google drive and place it in resources/" + RDIR + "shapes/
             #Link: https://drive.google.com/drive/u/1/folders/1dkW1wKBWvSY4i-XEuQFFBj242p0VdUlM
             gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
+            subregion_shapes="resources/" + RDIR + "shapes/subregion_shapes.geojson",
             # busmap=ancient('resources/" + RDIR + "bus_regions/busmap_elec_s{simpl}.csv'),
             # custom_busmap=("data/custom_busmap_elec_s{simpl}_{clusters}.csv"
             #                if config["enable"].get("custom_busmap", False) else []),
@@ -670,6 +672,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             regions_offshore="resources/"
             + RDIR
             + "bus_regions/regions_offshore_elec_s{simpl}_{clusters}.geojson",
+            
         output:
             network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         log:
@@ -698,6 +701,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == False:
             gadm_layer_id=config["build_shape_options"]["gadm_layer_id"],
             cluster_options=config["cluster_options"],
             focus_weights=config.get("focus_weights", None),
+            subregion=config["subregion"],
         input:
             network="networks/" + RDIR + "elec_s{simpl}.nc",
             country_shapes="resources/" + RDIR + "shapes/country_shapes.geojson",
@@ -712,6 +716,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == False:
             #To use: downlaod file from the google drive and place it in resources/" + RDIR + "shapes/
             #Link: https://drive.google.com/drive/u/1/folders/1dkW1wKBWvSY4i-XEuQFFBj242p0VdUlM
             gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
+            subregion_shapes="resources/" + RDIR + "shapes/subregion_shapes.geojson",
             # busmap=ancient('resources/" + RDIR + "bus_regions/busmap_elec_s{simpl}.csv'),
             # custom_busmap=("data/custom_busmap_elec_s{simpl}_{clusters}.csv"
             #                if config["enable"].get("custom_busmap", False) else []),

@@ -21,9 +21,9 @@ countries: ["MA"]
 
 enable: # 
   retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing. ## NOTES: Download the world protected areas
-  retrieve_databundle_sector: true # NOTE: This option seems to be outdated??? ## TODO: ask Lukas
+  retrieve_databundle_sector: true ## NOTE: This option seems to be outdated??? ## TODO: ask Lukas
   retrieve_cost_data: true # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
-  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries ## NOTES: see doc/data_workflow.rst to understand better
+  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries ##TODO: Should this not only be run one time for a country??? ## NOTES: see doc/data_workflow.rst to understand better
   build_natura_raster: false # If True, then an exclusion raster will be build ## TODO: when would one need to use the exclusion raster? ask Lukas 
   build_cutout: false
   # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
@@ -41,13 +41,13 @@ run:
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
 
 scenario:
-  simpl: [""]
+  simpl: [""] ## NOTE: Number of buses the network is simplified to in simplify network, before cluster network
   ll: ["copt"]
-  clusters: [1] # TODO: Define which GADM vs. Aggregated data from REGIOANTS
-  opts: [Co2L-1H]
+  clusters: [3] ## NOTE: Number of uses a detailed network model should be reduced to in the rule cluster_network.
+  opts: [Co2L-4H]
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030
-  - 2050 # TODO: Can we several years here?
+  # 2050 # TODO: Can we several years here?
   sopts:
   - "144H" # TODO: Should we set a different resolution??
   demand: # For H2GLOBAL --> IEE_NH2S_2030,IEE_GNZ_2030,IEE_NH2S_2050,IEE_GNZ_2050 
