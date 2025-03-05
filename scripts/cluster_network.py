@@ -572,7 +572,7 @@ def clustering_for_n_clusters(
             busmap = busmap_for_gadm_clusters(
                 inputs, n, gadm_layer_id, geo_crs, country_list
             )
-        elif subregion: # config["subregion"]["define_by_gadm"]:
+        elif config["subregion"]:
             busmap = busmap_for_subregion_clusters(
                 inputs, n, gadm_layer_id, geo_crs, country_list
             )
@@ -634,9 +634,16 @@ def cluster_regions(busmaps, inputs, output):
         aggfunc = dict(x="mean", y="mean", country="first")
         regions_c = regions.dissolve(busmap, aggfunc=aggfunc)
         regions_c.index.name = "name"
-        regions_c = regions_c.reset_index()
-        regions_c.to_file(getattr(output, which))
+        subregions = gpd.read_file(inputs.subregion_shapes).set_index("name")
+        
+        if which == "regions_onshore":
+                regions_c["geometry"] = regions_c.index.map(
+                    lambda subregions_id: subregions.at[
+                        subregions_id.split('_')[0],
+                         "geometry"]
+                )
 
+        regions_c.to_file(getattr(output, which))
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
@@ -652,7 +659,6 @@ if __name__ == "__main__":
     n = pypsa.Network(inputs.network)
 
     alternative_clustering = snakemake.params.cluster_options["alternative_clustering"]
-    subregion = snakemake.params.subregion["define_by_gadm"]
     distribution_cluster = snakemake.params.cluster_options["distribute_cluster"]
     gadm_layer_id = snakemake.params.build_shape_options["gadm_layer_id"]
     focus_weights = snakemake.params.get("focus_weights", None)
