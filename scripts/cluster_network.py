@@ -634,13 +634,14 @@ def cluster_regions(busmaps, inputs, output):
         aggfunc = dict(x="mean", y="mean", country="first")
         regions_c = regions.dissolve(busmap, aggfunc=aggfunc)
         regions_c.index.name = "name"
-        subregions = gpd.read_file(inputs.subregion_shapes).set_index("name")
-        
-        if which == "regions_onshore":
-                regions_c["geometry"] = regions_c.index.map(
-                    lambda subregions_id: subregions.at[
+        if config["subregion"]:
+            subregions = gpd.read_file(inputs.subregion_shapes).set_index("name")
+            if which == "regions_onshore":
+                regions_c["geometry"] = (
+                    regions_c.index.map(lambda subregions_id: subregions.at[
                         subregions_id.split('_')[0],
-                         "geometry"]
+                        "geometry"]
+                    )
                 )
 
         regions_c.to_file(getattr(output, which))
