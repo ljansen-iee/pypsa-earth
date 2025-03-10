@@ -15,24 +15,28 @@ import xarray as xr
 from _helpers import mock_snakemake, override_component_attrs
 
 
-def override_values(tech, year, dr):
+def override_values(tech, year, dr):  
     custom_res_t = pd.read_csv(
         snakemake.input["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
         index_col=0,
         parse_dates=True,
-    ).filter(buses, axis=1)
+    )
+
+    # custom_res_t = pd.read_csv(
+    #     snakemake.input["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
+    #     index_col=0,
+    #     parse_dates=True,
+    # ).filter(buses, axis=1)
 
     custom_res = (
         pd.read_csv(
             snakemake.input["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
             index_col=0,
         )
-        .filter(buses, axis=0)
-        .reset_index()
     )
 
-    custom_res["Generator"] = custom_res["Generator"].apply(lambda x: x + " " + tech)
-    custom_res = custom_res.set_index("Generator")
+    # custom_res["Generator"] = custom_res["Generator"].apply(lambda x: x + " " + tech)
+    # custom_res = custom_res.set_index("Generator")
 
     if tech.replace("-", " ") in n.generators.carrier.unique():
         to_drop = n.generators[n.generators.carrier == tech].index
@@ -73,11 +77,11 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "override_respot",
             simpl="",
-            clusters="4",
-            ll="c1",
+            clusters="3flex",
+            ll="copt",
             opts="Co2L-4H",
             planning_horizons="2030",
-            sopts="144H",
+            sopts="144h",
             discountrate=0.071,
             demand="AB",
         )
