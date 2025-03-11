@@ -1109,11 +1109,13 @@ rule prepare_sector_network:
         industrial_demand="resources/"
         + SECDIR
         + "demand/industrial_energy_demand_per_node_elec_s{simpl}_{clusters}_{planning_horizons}_{demand}.csv",
-        energy_totals="resources/"
-        + SECDIR
-        + "energy_totals_{demand}_{planning_horizons}.csv",
-        airports="resources/" + SECDIR + "airports.csv",
-        ports="resources/" + SECDIR + "ports.csv",
+        energy_totals= lambda w: (
+            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            if config["custom_data"]["custom_demands"]
+            else "data/energy_totals_{demand}_{planning_horizons}.csv"
+            ),
+        airports="data/airports.csv",
+        ports="data/ports.csv",
         heat_demand="resources/"
         + SECDIR
         + "demand/heat/heat_demand_{demand}_s{simpl}_{clusters}_{planning_horizons}.csv",
@@ -1217,9 +1219,11 @@ rule override_respot:
         },
         overrides="data/override_component_attrs",
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
-        energy_totals="resources/"
-        + SECDIR
-        + "energy_totals_{demand}_{planning_horizons}.csv",
+        energy_totals= lambda w: (
+            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            if config["custom_data"]["custom_demands"]
+            else "data/energy_totals_{demand}_{planning_horizons}.csv"
+            ), 
     output:
         RESDIR
         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_presec.nc",
@@ -1230,9 +1234,12 @@ rule override_respot:
 rule prepare_transport_data:
     input:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
-        energy_totals_name="resources/"
-        + SECDIR
-        + "energy_totals_{demand}_{planning_horizons}.csv",
+        energy_totals_name= lambda w: (
+            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            if config["custom_data"]["custom_demands"]
+            else "data/energy_totals_{demand}_{planning_horizons}.csv"
+            ),        
+        # energy_totals_name="data/energy_totals_{demand}_{planning_horizons}.csv",
         traffic_data_KFZ="data/emobility/KFZ__count",
         traffic_data_Pkw="data/emobility/Pkw__count",
         transport_name="resources/" + SECDIR + "transport_data.csv",
@@ -1316,9 +1323,12 @@ rule build_cop_profiles:
 rule prepare_heat_data:
     input:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
-        energy_totals_name="resources/"
-        + SECDIR
-        + "energy_totals_{demand}_{planning_horizons}.csv",
+        
+        energy_totals_name=lambda w: (
+            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            if config["custom_data"]["custom_demands"]
+            else "data/energy_totals_{demand}_{planning_horizons}.csv"
+            ), 
         clustered_pop_layout="resources/"
         + SECDIR
         + "population_shares/pop_layout_elec_s{simpl}_{clusters}_{planning_horizons}.csv",
