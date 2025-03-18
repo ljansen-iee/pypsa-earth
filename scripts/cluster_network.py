@@ -623,7 +623,6 @@ def clustering_for_n_clusters(
 
     return clustering
 
-
 def cluster_regions(busmaps, inputs, output):
     busmap = reduce(lambda x, y: x.map(y), busmaps[1:], busmaps[0])
 
@@ -634,18 +633,31 @@ def cluster_regions(busmaps, inputs, output):
         aggfunc = dict(x="mean", y="mean", country="first")
         regions_c = regions.dissolve(busmap, aggfunc=aggfunc)
         regions_c.index.name = "name"
-        if config["subregion"]:
-            subregions = gpd.read_file(inputs.subregion_shapes).set_index("name")
-            if which == "regions_onshore":
-                regions_c["geometry"] = (
-                    regions_c.index.map(lambda subregions_id: subregions.at[
-                        subregions_id.split('_')[0],
-                        "geometry"]
-                    )
-                )
-
+        regions_c = regions_c.reset_index()
         regions_c.to_file(getattr(output, which))
 
+def cluster_subregions(busmaps, inputs, output):
+    busmap = reduce(lambda x, y: x.map(y), busmaps[1:], busmaps[0])
+
+    for which in ("regions_offshore", "regions_onshore"):
+        # regions = gpd.read_file(getattr(input, which)).set_index("name")
+        regions = gpd.read_file(getattr(inputs, which))
+        regions = regions.reindex(columns=REGION_COLS).set_index("name")
+        aggfunc = dict(x="mean", y="mean", country="first")
+        regions_c = regions.dissolve(busmap, aggfunc=aggfunc)
+        regions_c.index.name = "name"
+        
+        if which == "regions_onshore":
+            subregions = gpd.read_file(inputs.subregion_shapes).set_index("name")
+            regions_c["geometry"] = (
+                regions_c.index.map(lambda subregions_id: subregions.at[
+                    subregions_id.split('_')[0],
+                    "geometry"]
+                )
+            )
+    regions_c.to_file(getattr(output, which))
+
+        
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from _helpers import mock_snakemake
@@ -781,4 +793,7 @@ if __name__ == "__main__":
     ):  # also available: linemap_positive, linemap_negative
         getattr(clustering, attr).to_csv(outputs[attr])
 
-    cluster_regions((clustering.busmap,), inputs, outputs)
+    if config["subregion"]["path_custom_shapes"]:
+        cluster_subregions((clustering.busmap,), inputs, outputs)
+    else:
+        cluster_regions((clustering.busmap,), inputs, outputs)
