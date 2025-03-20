@@ -1203,7 +1203,7 @@ rule override_respot:
     input:
         **{
             f"custom_res_pot_{tech}_{planning_horizons}_{discountrate}": (
-                "data/custom/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
+                "data/custom/" + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
                 if config["custom_data"]["renewables"]["update_data"]
                 else "resources/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
             )
@@ -1213,7 +1213,7 @@ rule override_respot:
         },
         **{
             f"custom_res_ins_{tech}_{planning_horizons}_{discountrate}": (
-                "data/custom/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
+                "data/custom/" + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
                 if config["custom_data"]["renewables"]["update_data"]
                 else "resources/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
             )
