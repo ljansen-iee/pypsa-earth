@@ -655,7 +655,7 @@ def cluster_subregions(busmaps, inputs, output):
                     "geometry"]
                 )
             )
-    regions_c.to_file(getattr(output, which))
+        regions_c.to_file(getattr(output, which))
 
         
 if __name__ == "__main__":

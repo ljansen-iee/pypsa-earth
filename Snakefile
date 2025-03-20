@@ -1110,7 +1110,7 @@ rule prepare_sector_network:
         + SECDIR
         + "demand/industrial_energy_demand_per_node_elec_s{simpl}_{clusters}_{planning_horizons}_{demand}.csv",
         energy_totals= lambda w: (
-            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            "data/custom/energy_totals_{altscenario}_{planning_horizons}.csv"
             if config["custom_data"]["custom_demands"]
             else "data/energy_totals_{demand}_{planning_horizons}.csv"
             ),
@@ -1240,7 +1240,7 @@ rule override_respot:
         overrides="data/override_component_attrs",
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
         energy_totals= lambda w: (
-            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            "data/custom/energy_totals_{altscenario'}_{planning_horizons}.csv"
             if config["custom_data"]["custom_demands"]
             else "data/energy_totals_{demand}_{planning_horizons}.csv"
             ), 
@@ -1255,7 +1255,7 @@ rule prepare_transport_data:
     input:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         energy_totals_name= lambda w: (
-            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            "data/custom/energy_totals_{altscenario}_{planning_horizons}.csv"
             if config["custom_data"]["custom_demands"]
             else "data/energy_totals_{demand}_{planning_horizons}.csv"
             ),        
@@ -1345,7 +1345,7 @@ rule prepare_heat_data:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         
         energy_totals_name=lambda w: (
-            "data/custom/energy_totals_{alt_scenario}_{planning_horizons}.csv"
+            "data/custom/energy_totals_{altscenario}_{planning_horizons}.csv"
             if config["custom_data"]["custom_demands"]
             else "data/energy_totals_{demand}_{planning_horizons}.csv"
             ), 
