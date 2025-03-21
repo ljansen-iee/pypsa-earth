@@ -2914,8 +2914,9 @@ if __name__ == "__main__":
             sopts="144h",
             discountrate=0.071,
             demand="AB",
+            altdemands= "MA_iee_GlobalNZ",
         )
-
+    
     # Load population layout
     pop_layout = pd.read_csv(snakemake.input.clustered_pop_layout, index_col=0)
 
