@@ -486,25 +486,27 @@ def add_hydrogen(n, costs):
 
     # Add H2 Links:
     if snakemake.config["sector"]["hydrogen"]["network"]:
-        h2_links = pd.read_csv(snakemake.input.pipelines)
+        # h2_links = pd.read_csv(snakemake.input.pipelines)
 
-        # Order buses to detect equal pairs for bidirectional pipelines
-        buses_ordered = h2_links.apply(lambda p: sorted([p.bus0, p.bus1]), axis=1)
+        # # Order buses to detect equal pairs for bidirectional pipelines
+        # buses_ordered = h2_links.apply(lambda p: sorted([p.bus0, p.bus1]), axis=1)
 
-        # Appending string for carrier specification '_AC', because hydrogen has _AC in bus names
-        h2_links["bus0"] = buses_ordered.str[0] + "_AC"
-        h2_links["bus1"] = buses_ordered.str[1] + "_AC"
+        # # Appending string for carrier specification '_AC', because hydrogen has _AC in bus names
+        # # h2_links["bus0"] = buses_ordered.str[0] + "_AC"
+        # # h2_links["bus1"] = buses_ordered.str[1] + "_AC"
+        # h2_links["bus0"] = buses_ordered.apply(lambda x: x[0] + "_AC")
+        # h2_links["bus1"] = buses_ordered.apply(lambda x: x[1] + "_AC")
+        
+        # # Create index column
+        # h2_links["buses_idx"] = (
+        #     "H2 pipeline " + h2_links["bus0"] + " -> " + h2_links["bus1"]
+        # )
 
-        # Create index column
-        h2_links["buses_idx"] = (
-            "H2 pipeline " + h2_links["bus0"] + " -> " + h2_links["bus1"]
-        )
-
-        # Aggregate pipelines applying mean on length and sum on capacities
-        h2_links = h2_links.groupby("buses_idx").agg(
-            {"bus0": "first", "bus1": "first", "length": "mean", "capacity": "sum"}
-        )
-
+        # # Aggregate pipelines applying mean on length and sum on capacities
+        # h2_links = h2_links.groupby("buses_idx").agg(
+        #     {"bus0": "first", "bus1": "first", "length": "mean", "capacity": "sum"}
+        # )
+        h2_links = []
         if len(h2_links) > 0:
             if snakemake.config["sector"]["hydrogen"]["gas_network_repurposing"]:
                 add_links_repurposed_H2_pipelines()
