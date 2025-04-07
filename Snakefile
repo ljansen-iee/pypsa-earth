@@ -629,7 +629,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
             subregion_shapes= lambda w: (
             "resources/" + RDIR + "shapes/subregion_shapes.geojson"
-            if config["subregion"]["define_by_gadm"]
+            if not config["subregion"]["path_custom_shapes"]
             else config["subregion"]["path_custom_shapes"]
             ),
             # busmap=ancient('resources/" + RDIR + "bus_regions/busmap_elec_s{simpl}.csv'),
