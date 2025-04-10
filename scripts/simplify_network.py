@@ -665,7 +665,7 @@ def cluster(
         build_shape_options,
         custom_busmap=False,
         aggregation_strategies=aggregation_strategies,
-        potential_mode=potential_mode,
+        #potential_mode=potential_mode, # Clustering and and error occurs when using scenario.simpl wildcard
         solver_name=solver_name,
         algorithm=algorithm,
         feature=feature,
