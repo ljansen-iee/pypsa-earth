@@ -475,7 +475,7 @@ export:
     unload_time: 24 # hours for 48h see Hampp2021
 
 custom_data:
-  renewables: [] # ['csp', 'rooftop-solar', 'solar']
+  renewables: false # if ["solar","onwind"], then custom .csv files must be placed in "data/custom/renewables/" + SECDIR + f"/{tech}_{planning_horizons}_{discountrate}_potential.csv" 
   elec_demand: false
   heat_demand: false
   industry_demand: false
@@ -485,6 +485,9 @@ custom_data:
   h2_underground: false
   add_existing: false
   custom_sectors: false
+  custom_demands: # TODO: ESTEFANIA ADD THE WORKFLOW FOR DEMAND DATA TOO
+    update_data: false
+    altdemands: "MA_iee_GlobalNZ" #"MA_iee_NH2strategy","MA_iee_baseline" if "True" then custom .csv file must be placed in "data/custom/xxxx.csv" , If "False" the workflow works with default data.
   gas_network: false # If "True" then a custom .csv file must be placed in "resources/custom_data/pipelines.csv" , If "False" the user can choose btw "greenfield" or Model built-in datasets. Please refer to ["sector"] below.
   export_ports: false # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
   airports: false # If "True" then a custom .csv file must be placed in "data/custom/airports.csv". Data format for aiports must be in the format of the airports.csv file in the data folder.
