@@ -7,43 +7,44 @@ import os
 from itertools import dropwhile
 from types import SimpleNamespace
 
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import pypsa
 import pytz
 import xarray as xr
-from _helpers import mock_snakemake, override_component_attrs
+from _helpers import mock_snakemake, override_component_attrs, BASE_DIR
 
 
 def override_values(tech, year, dr):
 
-    if snakemake.params.custom_data["renewables"]["update_data"]:
-        custom_res_t = pd.read_csv(
-            snakemake.input["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
+    # if snakemake.params.custom_data["renewables"]["update_data"]:
+    #     custom_res_t = pd.read_csv(
+    #         custom_res_pot_paths["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
+    #         index_col=0,
+    #         parse_dates=True,
+    #     )
+    #     custom_res = pd.read_csv(
+    #         custom_res_ins_paths["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
+    #         index_col=0,
+    #         )
+    # elif snakemake.params.custom_data["renewables"]:
+    custom_res_t = pd.read_csv(
+            custom_res_pot_paths["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
             index_col=0,
             parse_dates=True,
-        )
-        custom_res = pd.read_csv(
-            snakemake.input["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
-            index_col=0,
-            )
-    elif snakemake.params.custom_data["renewables"]:
-        custom_res_t = pd.read_csv(
-                snakemake.input["custom_res_pot_{0}_{1}_{2}".format(tech, year, dr)],
-                index_col=0,
-                parse_dates=True,
-            ).filter(buses, axis=1)
+        ).filter(buses, axis=1)
 
-        custom_res = (
-            pd.read_csv(
-                snakemake.input["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
-                index_col=0,
-            )
-            .filter(buses, axis=0)
-            .reset_index()
+    custom_res = (
+        pd.read_csv(
+            custom_res_ins_paths["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
+            index_col=0,
         )
-        custom_res["Generator"] = custom_res["Generator"].apply(lambda x: x + " " + tech)
-        custom_res = custom_res.set_index("Generator")
+        .filter(buses, axis=0)
+        .reset_index()
+    )
+    custom_res["Generator"] = custom_res["Generator"].apply(lambda x: x + " " + tech)
+    custom_res = custom_res.set_index("Generator")
 
 
     if tech.replace("-", " ") in n.generators.carrier.unique():
@@ -94,6 +95,8 @@ if __name__ == "__main__":
             demand="AB",
         )
 
+    secdir = snakemake.params["secdir"]
+
     overrides = override_component_attrs(snakemake.input.overrides)
     n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
     m = n.copy()
@@ -101,11 +104,25 @@ if __name__ == "__main__":
         buses = list(n.buses[n.buses.carrier == "AC"].index)
         energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=0)
         countries = snakemake.params.countries
-        techs = snakemake.params.custom_data["renewables"]["alternative_ts"]
+        techs = snakemake.params.custom_data["renewables"]["res_techs"]
         year = snakemake.wildcards["planning_horizons"]
         dr = snakemake.wildcards["discountrate"]
 
-        m = n.copy()
+
+        custom_res_pot_paths = {
+            f"custom_res_pot_{tech}_{planning_horizons}_{discountrate}": 
+                f"data/custom/renewables/{secdir}/{tech}_{planning_horizons}_{discountrate}_potential.csv"
+            for tech in techs
+            for planning_horizons in year
+            for discountrate in dr
+        }
+        custom_res_ins_paths = {
+            f"custom_res_ins_{tech}_{planning_horizons}_{discountrate}": 
+                f"data/custom/renewables/{secdir}/{tech}_{planning_horizons}_{discountrate}_installable.csv"
+            for tech in techs
+            for planning_horizons in year
+            for discountrate in dr
+        }
 
         for tech in techs:
             override_values(tech, year, dr)
@@ -113,15 +130,15 @@ if __name__ == "__main__":
         else:
             print("No RES potential techs to override...")
 
-        if snakemake.params.custom_data["elec_demand"]:
-            for country in countries:
-                n.loads_t.p_set.filter(like=country)[buses] = (
-                    (
-                        n.loads_t.p_set.filter(like=country)[buses]
-                        / n.loads_t.p_set.filter(like=country)[buses].sum().sum()
-                    )
-                    * energy_totals.loc[country, "electricity residential"]
-                    * 1e6
+    if snakemake.params.custom_data["elec_demand"]:
+        for country in countries:
+            n.loads_t.p_set.filter(like=country)[buses] = (
+                (
+                    n.loads_t.p_set.filter(like=country)[buses]
+                    / n.loads_t.p_set.filter(like=country)[buses].sum().sum()
                 )
+                * energy_totals.loc[country, "electricity residential"]
+                * 1e6
+            )
 
     n.export_to_netcdf(snakemake.output[0])

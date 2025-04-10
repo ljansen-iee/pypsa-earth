@@ -1112,16 +1112,16 @@ rule prepare_sector_network:
         + "demand/industrial_energy_demand_per_node_elec_s{simpl}_{clusters}_{planning_horizons}_{demand}.csv",
         # energy_totals= lambda w: (
         #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]
-        #     else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        #     if config["custom_data"]["custom_demands"]["update_data"]
+        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         #     ),
         energy_totals= lambda w: (
         f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
-        if config["custom_data"]["custom_demands"]
-        else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        if config["custom_data"]["custom_demands"]["update_data"]
+        else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ), 
-        airports="data/airports.csv",
-        ports="data/ports.csv",
+        airports="resources/" + SECDIR + "airports.csv",
+        ports="resources/" + SECDIR + "ports.csv",
         heat_demand="resources/"
         + SECDIR
         + "demand/heat/heat_demand_{demand}_s{simpl}_{clusters}_{planning_horizons}.csv",
@@ -1204,57 +1204,18 @@ rule add_export:
 rule override_respot:
     params:
         run=run["name"],
+        secdir=SECDIR,
         custom_data=config["custom_data"],
         countries=config["countries"],
     input:
-        **{
-            f"custom_res_pot_{tech}_{planning_horizons}_{discountrate}": (
-                "data/custom/" + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
-                if config["custom_data"]["renewables"]["update_data"]
-                else "resources/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
-            )
-            for tech in config["custom_data"]["renewables"]["alternative_ts"]
-            for planning_horizons in config["scenario"]["planning_horizons"]
-            for discountrate in config["costs"]["discountrate"]
-        },
-        **{
-            f"custom_res_ins_{tech}_{planning_horizons}_{discountrate}": (
-                "data/custom/" + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
-                if config["custom_data"]["renewables"]["update_data"]
-                else "resources/" + SECDIR + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
-            )
-            for tech in config["custom_data"]["renewables"]["alternative_ts"]
-            for planning_horizons in config["scenario"]["planning_horizons"]
-            for discountrate in config["costs"]["discountrate"]
-        },
-        # **{
-        #     f"custom_res_pot_{tech}_{planning_horizons}_{discountrate}": "data/custom/"
-        #     + SECDIR
-        #     + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_potential.csv"
-        #     for tech in config["custom_data"]["renewables"]
-        #     for discountrate in config["costs"]["discountrate"]
-        #     for planning_horizons in config["scenario"]["planning_horizons"]
-        # },
-        # **{
-        #     f"custom_res_ins_{tech}_{planning_horizons}_{discountrate}": "data/custom/"
-        #     + SECDIR
-        #     + f"custom_renewables/{tech}_{planning_horizons}_{discountrate}_installable.csv"
-        #     for tech in config["custom_data"]["renewables"]
-        #     for discountrate in config["costs"]["discountrate"]
-        #     for planning_horizons in config["scenario"]["planning_horizons"]
-        # },
         overrides="data/override_component_attrs",
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
-        # energy_totals= lambda w: (
-        #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]
-        #     else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
-        #     ),
         energy_totals= lambda w: (
             f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
-            if config["custom_data"]["custom_demands"]
-            else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+            if config["custom_data"]["custom_demands"]["update_data"]
+            else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv"
             ), 
+            
     output:
         RESDIR
         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_presec.nc",
@@ -1267,13 +1228,13 @@ rule prepare_transport_data:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         # energy_totals_name= lambda w: (
         #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]
-        #     else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        #     if config["custom_data"]["custom_demands"]["update_data"]
+        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         #     ),
         energy_totals_name= lambda w: (
         f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
-        if config["custom_data"]["custom_demands"]
-        else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        if config["custom_data"]["custom_demands"]["update_data"]
+        else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ),         
         # energy_totals_name="data/energy_totals_{demand}_{planning_horizons}.csv",
         traffic_data_KFZ="data/emobility/KFZ__count",
@@ -1361,13 +1322,13 @@ rule prepare_heat_data:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         # energy_totals_name= lambda w: (
         #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]
-        #     else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        #     if config["custom_data"]["custom_demands"]["update_data"]
+        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         #     ),
         energy_totals_name= lambda w: (
         f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
-        if config["custom_data"]["custom_demands"]
-        else f"data/energy_totals_{w.demand}_{w.planning_horizons}.csv"
+        if config["custom_data"]["custom_demands"]["update_data"]
+        else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ), 
         clustered_pop_layout="resources/"
         + SECDIR
