@@ -102,8 +102,8 @@ if __name__ == "__main__":
     df = df.loc[df.country.apply(lambda x: isinstance(x, str)), :]
 
     # Reduce the data to one value for the urban percent per country and year
-    df = df.groupby(["country","Year"], as_index=False).mean(numeric_only=True)
-    
+    df = df.groupby(["country", "Year"], as_index=False).mean(numeric_only=True)
+
     df = df.set_index("country")
 
     # Save
