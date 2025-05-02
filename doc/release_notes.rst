@@ -35,6 +35,9 @@ This part of documentation collects descriptive release notes to capture the mai
 
 **Minor Changes and bug-fixing**
 
+
+* Fix: Use the mean value instead of the sum to remove duplicates in the urban percentage data per country and year. `PR #1420 <https://github.com/pypsa-meets-earth/pypsa-earth/pull/1420>`__
+
 * Fix hydrogen export if no export exists to avoid solving issues. `PR #1419 <https://github.com/pypsa-meets-earth/pypsa-earth/pull/1419>`__
 
 * Update the applications list for PyPSA-Earth model. `PR #1413 <https://github.com/pypsa-meets-earth/pypsa-earth/pull/1413>`__
