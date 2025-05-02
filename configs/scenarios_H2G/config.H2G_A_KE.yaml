@@ -43,7 +43,7 @@ scenario:
   opts: [Co2L0.05] # Co2L0.00 TODO per country: adjust factor (e.g. Co2L0.8 for 2035) and co2base (see below) per country and planning_horizon based on excel file
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2035
-  - 2050
+  # - 2050
   sopts:
   - "3H"
   demand:
