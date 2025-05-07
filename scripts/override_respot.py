@@ -38,9 +38,9 @@ def override_values(tech, year, dr):
     custom_res = (
         pd.read_csv(
             custom_res_ins_paths["custom_res_ins_{0}_{1}_{2}".format(tech, year, dr)],
-            index_col=0,
+            #index_col=0,
         )
-        .filter(buses, axis=0)
+        #.filter(buses, axis=0)
         .reset_index()
     )
     custom_res["Generator"] = custom_res["Generator"].apply(lambda x: x + " " + tech)
@@ -88,19 +88,17 @@ if __name__ == "__main__":
             simpl="",
             clusters="3flex",
             ll="copt",
-            opts="Co2L-4H",
+            opts="Co2L",
             planning_horizons=2030,
             sopts="144h",
             discountrate=0.071,
             demand="AB",
         )
 
-    secdir = snakemake.params["secdir"]
-
     overrides = override_component_attrs(snakemake.input.overrides)
     n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
     m = n.copy()
-    if snakemake.params.custom_data["renewables"]:
+    if snakemake.params.custom_data["renewables"]["update_data"]:
         buses = list(n.buses[n.buses.carrier == "AC"].index)
         energy_totals = pd.read_csv(snakemake.input.energy_totals, index_col=0)
         countries = snakemake.params.countries
@@ -110,25 +108,21 @@ if __name__ == "__main__":
 
 
         custom_res_pot_paths = {
-            f"custom_res_pot_{tech}_{planning_horizons}_{discountrate}": 
-                f"data/custom/renewables/{secdir}/{tech}_{planning_horizons}_{discountrate}_potential.csv"
+            f"custom_res_pot_{tech}_{year}_{dr}": 
+                f"data/custom/renewables/{tech}_{year}_{dr}_potential.csv"
             for tech in techs
-            for planning_horizons in year
-            for discountrate in dr
         }
         custom_res_ins_paths = {
-            f"custom_res_ins_{tech}_{planning_horizons}_{discountrate}": 
-                f"data/custom/renewables/{secdir}/{tech}_{planning_horizons}_{discountrate}_installable.csv"
+            f"custom_res_ins_{tech}_{year}_{dr}": 
+                f"data/custom/renewables/{tech}_{year}_{dr}_installable.csv"
             for tech in techs
-            for planning_horizons in year
-            for discountrate in dr
         }
 
         for tech in techs:
             override_values(tech, year, dr)
 
-        else:
-            print("No RES potential techs to override...")
+    else:
+        print("No RES potential techs to override...")
 
     if snakemake.params.custom_data["elec_demand"]:
         for country in countries:
