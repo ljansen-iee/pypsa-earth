@@ -8,7 +8,7 @@ summary_dir: results/
 foresight: overnight # TODO: csp, myopic, monte carlo in szenario A zeigen
 
 
-countries: ["CG"]
+countries: ["CD"]
 # TODO per country: Insert country you want to model "EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/configuration.html#top-level-configuration
 
@@ -28,9 +28,9 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "H2G_A1_CG" # use this to keep track of runs with different settings
+  name: "H2G_A1_CD" # use this to keep track of runs with different settings
   # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
-  sector_name: "H2G_A1_CG" # use this to keep track of sector scenario runs
+  sector_name: "H2G_A1_CD" # use this to keep track of sector scenario runs
   # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
@@ -40,10 +40,10 @@ scenario:
   simpl: [""]
   ll: ["copt"]
   clusters: [10]
-  opts: [Co2L0.6] # Co2L0.15 TODO per country: adjust factor (e.g. Co2L0.8 for 2035, Co2L0.1) and co2base (see below) per country and planning_horizon based on excel file
+  opts: [Co2L0.15] # Co2L0.15 TODO per country: adjust factor (e.g. Co2L0.8 for 2035, Co2L0.1) and co2base (see below) per country and planning_horizon based on excel file
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2035
-  # - 2050
+  #- 2035
+  - 2050
   sopts:
   - "3H"
   demand:
