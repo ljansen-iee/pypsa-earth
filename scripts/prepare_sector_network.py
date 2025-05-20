@@ -3049,7 +3049,7 @@ if __name__ == "__main__":
     add_generation(n, costs, existing_capacities, existing_efficiencies, existing_nodes)
 
     # remove H2 and battery technologies added in elec-only model
-    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery"])
+    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery", "biomass"])
 
     add_hydrogen(n, costs)  # TODO add costs
 

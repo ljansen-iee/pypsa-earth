@@ -73,9 +73,8 @@ wildcard_constraints:
     sopts="[-+a-zA-Z0-9\.\s]*",
     discountrate="[-+a-zA-Z0-9\.\s]*",
     demand="[-+a-zA-Z0-9\.\s]*",
-    h2export="[0-9]+(\.[0-9]+)",
+    h2export="[0-9]+(\.[0-9]+)?",
     planning_horizons="20[2-9][0-9]|2100",
-    altdemands="[-+a-zA-Z0-9\.\s]*",
 
 
 if config["custom_rules"] is not []:
@@ -675,8 +674,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             + "bus_regions/regions_onshore_elec_s{simpl}_{clusters}.geojson",
             regions_offshore="resources/"
             + RDIR
-            + "bus_regions/regions_offshore_elec_s{simpl}_{clusters}.geojson",
-            
+            + "bus_regions/regions_offshore_elec_s{simpl}_{clusters}.geojson",  
         output:
             network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
         log:
@@ -1110,13 +1108,8 @@ rule prepare_sector_network:
         industrial_demand="resources/"
         + SECDIR
         + "demand/industrial_energy_demand_per_node_elec_s{simpl}_{clusters}_{planning_horizons}_{demand}.csv",
-        # energy_totals= lambda w: (
-        #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]["update_data"]
-        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
-        #     ),
         energy_totals= lambda w: (
-        f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
+        f"data/custom/energy_totals_{w.demand}_{w.planning_horizons}.csv"
         if config["custom_data"]["custom_demands"]["update_data"]
         else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ), 
@@ -1211,7 +1204,7 @@ rule override_respot:
         overrides="data/override_component_attrs",
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
         energy_totals= lambda w: (
-            f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
+            f"data/custom/energy_totals_{w.demand}_{w.planning_horizons}.csv"
             if config["custom_data"]["custom_demands"]["update_data"]
             else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv"
             ), 
@@ -1226,13 +1219,8 @@ rule override_respot:
 rule prepare_transport_data:
     input:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
-        # energy_totals_name= lambda w: (
-        #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]["update_data"]
-        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
-        #     ),
         energy_totals_name= lambda w: (
-        f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
+        f"data/custom/energy_totals_{w.demand}_{w.planning_horizons}.csv"
         if config["custom_data"]["custom_demands"]["update_data"]
         else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ),         
@@ -1320,13 +1308,8 @@ rule build_cop_profiles:
 rule prepare_heat_data:
     input:
         network="networks/" + RDIR + "elec_s{simpl}_{clusters}.nc",
-        # energy_totals_name= lambda w: (
-        #     f"data/custom/energy_totals_{w.altdemands}_{w.planning_horizons}.csv"
-        #     if config["custom_data"]["custom_demands"]["update_data"]
-        #     else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
-        #     ),
         energy_totals_name= lambda w: (
-        f"data/custom/energy_totals_MA_iee_GlobalNZ_{w.planning_horizons}.csv"
+        f"data/custom/energy_totals_{w.demand}_{w.planning_horizons}.csv"
         if config["custom_data"]["custom_demands"]["update_data"]
         else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv" 
         ), 
