@@ -144,7 +144,7 @@ sector:
     H2_retrofit_capacity_per_CH4: 0.6
     network_limit: 2000 #GWkm #TODO: TALK WITH LUKAS
     network_routes: greenfield # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
-    gas_network_repurposing: true # If true -> ["sector"]["gas"]["network"] is automatically false
+    gas_network_repurposing: false # If true -> ["sector"]["gas"]["network"] is automatically false
     underground_storage: false
     hydrogen_colors: false
     set_color_shares: false
@@ -325,32 +325,7 @@ solving:
       method: 2 # barrier
       crossover: 0
       BarConvTol: 1.e-6
-      OptimalityTol: 1.e-6
       Seed: 123
       AggFill: 0
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
-      BarHomogeneous: 1
-      BarOrder: 0
-    gurobi-numeric-focus:
-      NumericFocus: 3 # Favour numeric stability over speed
-      method: 2 # barrier
-      crossover: 0 # do not use crossover
-      BarHomogeneous: 1 # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-4
-      OptimalityTol: 1.e-4
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
-    gurobi-fallback: # Use gurobi defaults
-      crossover: 0
-      method: 2 # barrier
-      BarHomogeneous: 1 # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-5
-      OptimalityTol: 1.e-5
-      Seed: 123
-      threads: 8
-
-  mem: 30000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
