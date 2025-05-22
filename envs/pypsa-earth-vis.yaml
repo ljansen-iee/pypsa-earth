@@ -1,8 +1,10 @@
 name: pypsa-earth-vis
 channels:
   - conda-forge
+  - bioconda
 dependencies:
-  - pypsa
+  - pypsa>=0.34
+  - snakemake-minimal<8
   - jupyterlab
   - plotly
   

@@ -14,7 +14,7 @@ summary_dir: results/
 
 foresight: overnight
 
-countries: ["MA"]
+countries: ["EG"]
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/configuration.html#top-level-configuration
 
 enable:
@@ -34,8 +34,8 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "MA_H2G_B_250515" # use this to keep track of runs with different settings
-  sector_name: "MA_H2G_B_250515" # use this to keep track of sector scenario runs
+  name: "H2G_B_EG_2035" # use this to keep track of runs with different settings
+  sector_name: "H2G_B_EG_2035" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -44,14 +44,14 @@ scenario:
   simpl: [""]
   ll: ["copt"]
   clusters: [3flex] # TODO: Define which GADM vs. Aggregated data from REGIOANTS
-  opts: [Co2L0.83] # 2030, 2035, ...: Co2L0.83, Co2L0.62,	Co2L0.46,	Co2L0.35.NOTES: Hourly resolution is considered in solve rules (elec)
+  opts: [Co2L0.59] # 2030, 2035, ...: Co2L0.83, Co2L0.62,	Co2L0.46,	Co2L0.35.NOTES: Hourly resolution is considered in solve rules (elec)
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030
   #- 2050 # TODO: Can I add several years here??
   sopts: # NOTES: this is for sector options
   - "3h" # TODO: Should we set a different resolution??
   demand:
-  - "MA-GNZ-IEE" # NB: Use "MA-GNZ-IEE" if custom_demands.update_data = true and "GNZ" if custom_demands.update_data = false
+  - "GNZ" # NB: Use "MA-GNZ-IEE" if custom_demands.update_data = true and "GNZ" if custom_demands.update_data = false
 
 snapshots: 
   start: "2013-01-01"
@@ -111,7 +111,7 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: true
+    update_data: false
     res_techs: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
   elec_demand: false
   heat_demand: false
@@ -123,7 +123,7 @@ custom_data:
   add_existing: false
   custom_sectors: false
   custom_demands: # TODO: ESTEFANIA ADD THE WORKFLOW FOR DEMAND DATA TOO
-    update_data: true # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
+    update_data: false # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
     # altdemands: "MA_iee_GlobalNZ" #"MA_NH2Strategy","MA_iee_baseline" if "True" then custom .csv file must be placed in "data/custom/xxxx.csv" , If "False" the workflow works with default data.
   gas_network: false # If "True" then a custom .csv file must be placed in "resources/custom_data/pipelines.csv" , If "False" the user can choose btw "greenfield" or Model built-in datasets. Please refer to ["sector"] below.
   export_ports: false # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
@@ -188,7 +188,7 @@ sector:
 
   biomass_transport: true # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
-  solid_biomass_potential: 17.1 # TWh/a, Potential of whole modelled area 
+  solid_biomass_potential: 100 # TWh/a, Potential of whole modelled area 
   # TODO per country: conservative assumptions is to take 97% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
   biogas_potential: 0.5 # TWh/a, Potential of whole modelled area 
   # TODO per country: conservative assumptions is to take 3% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
