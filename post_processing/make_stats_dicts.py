@@ -8,7 +8,6 @@ import pypsa
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning) # Comment out for debugging and development
 warnings.simplefilter(action='ignore', category=DeprecationWarning) # Comment out for debugging and development
-import plotly.express as px
 
 from plot_helpers import (
     chdir_to_parent_dir,
