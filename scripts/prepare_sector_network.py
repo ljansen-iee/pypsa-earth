@@ -2607,7 +2607,7 @@ def add_residential(n, costs):
             n.loads_t.p_set.filter(like=country)[heat_buses].sum().sum(),
         )
         n.loads_t.p_set.loc[:, heat_buses] = np.where(
-            ~np.isnan(safe_division),
+            safe_division.notna(),
             (safe_division * rem_heat_demand * 1e6).div(temporal_resolution, axis=0),
             0.0,
         )
@@ -2908,12 +2908,12 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "prepare_sector_network",
             simpl="",
-            clusters="4",
-            ll="c1",
-            opts="Co2L-4H",
-            planning_horizons="2030",
-            sopts="144H",
-            discountrate=0.071,
+            clusters="10",
+            ll="copt",
+            opts="Co2L0.6",
+            planning_horizons="2035",
+            sopts="3H",
+            discountrate=0.082,
             demand="AB",
         )
 
