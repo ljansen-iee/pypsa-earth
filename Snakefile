@@ -1213,17 +1213,11 @@ rule override_respot:
     params:
         run=run["name"],
         secdir=SECDIR,
-        custom_data=config["custom_data"],
+        custom_data_renewables=config["custom_data"]["renewables"],
         countries=config["countries"],
     input:
         overrides="data/override_component_attrs",
-        network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
-        energy_totals= lambda w: (
-            f"data/custom/energy_totals_{w.demand}_{w.planning_horizons}.csv"
-            if config["custom_data"]["custom_demands"]["update_data"]
-            else "resources/" + SECDIR + f"energy_totals_{w.demand}_{w.planning_horizons}.csv"
-            ), 
-            
+        network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",         
     output:
         RESDIR
         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_presec.nc",
