@@ -632,7 +632,7 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == True:
             #To use: downlaod file from the google drive and place it in resources/" + RDIR + "shapes/
             #Link: https://drive.google.com/drive/u/1/folders/1dkW1wKBWvSY4i-XEuQFFBj242p0VdUlM
             gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
-            subregion_shapes= lambda w: (
+            subregion_shapes=(
             "resources/" + RDIR + "shapes/subregion_shapes.geojson"
             if not config["subregion"]["path_custom_shapes"]
             else config["subregion"]["path_custom_shapes"]
@@ -723,9 +723,9 @@ if config["augmented_line_connection"].get("add_to_snakefile", False) == False:
             #To use: downlaod file from the google drive and place it in resources/" + RDIR + "shapes/
             #Link: https://drive.google.com/drive/u/1/folders/1dkW1wKBWvSY4i-XEuQFFBj242p0VdUlM
             gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
-            subregion_shapes= lambda w: (
+            subregion_shapes=(
             "resources/" + RDIR + "shapes/subregion_shapes.geojson"
-            if config["subregion"]["define_by_gadm"]
+            if not config["subregion"]["path_custom_shapes"]
             else config["subregion"]["path_custom_shapes"]
             ),
             # busmap=ancient('resources/" + RDIR + "bus_regions/busmap_elec_s{simpl}.csv'),
@@ -1209,7 +1209,22 @@ rule add_export:
         "scripts/add_export.py"
 
 
-rule override_respot:
+# rule override_respot:
+#     params:
+#         run=run["name"],
+#         secdir=SECDIR,
+#         custom_data_renewables=config["custom_data"]["renewables"],
+#         countries=config["countries"],
+#     input:
+#         overrides="data/override_component_attrs",
+#         network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",         
+#     output:
+#         RESDIR
+#         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_presec.nc",
+#     script:
+#         "scripts/override_respot.py"
+
+rule overwrite_renewables:
     params:
         run=run["name"],
         secdir=SECDIR,
@@ -1222,7 +1237,7 @@ rule override_respot:
         RESDIR
         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_presec.nc",
     script:
-        "scripts/override_respot.py"
+        "scripts/overwrite_renewables.py"
 
 
 rule prepare_transport_data:

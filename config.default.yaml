@@ -475,7 +475,11 @@ export:
     unload_time: 24 # hours for 48h see Hampp2021
 
 custom_data:
-  renewables: false # if ["solar","onwind"], then custom .csv files must be placed in "data/custom/renewables/" + SECDIR + f"/{tech}_{planning_horizons}_{discountrate}_potential.csv" 
+  renewables: # ['csp', 'rooftop-solar', 'solar']
+    update_data: false # if true then custom custom_res_pot_{tech}_{year}_{dr}.csv and custom_res_ins_{tech}_{year}_{dr}.csv files must be placed in "data/custom/renewables"
+    carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
+    resource_classes: 3
+    overwrite_capital_costs: false # if false, then the discountrate wildcard value is also ignored when looking for the custom file
   elec_demand: false
   heat_demand: false
   industry_demand: false
