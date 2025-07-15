@@ -3,6 +3,6 @@
 snakemake solve_sector_networks --cluster-config configs/cluster_config.yaml \
 --cluster "sbatch -p {cluster.partition} -t {cluster.walltime} -c {cluster.cpus_per_task} --mem {cluster.mem_mb} -x {cluster.exclude}" \
 --jobs 199 --latency-wait 60 --keep-going \
---configfile config.RE_classes_EG_2050.yaml
---rerun-trigger mtime
+--configfile config.yaml
+--rerun-trigger mtime \
 #--until prepare_network \

@@ -20,14 +20,13 @@ chdir_to_parent_dir()
 
 #%%
 
-run_name_prefix = "overwrite" # Experiment name
+run_name_prefix = "DKS" # Experiment name
 
 sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
-    "RE_classes_EG_2050",
-    "nooverwrite_EG_2050",
+    "DKS_EG_2050",
 ]
 
 #%%
