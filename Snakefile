@@ -418,6 +418,15 @@ if config["enable"].get("retrieve_cost_data", True):
         run:
             move(input[0], output[0])
 
+if not config["enable"].get("retrieve_cost_data", True):
+
+    rule copy_custom_costs:
+        input:
+            "data/custom/" + RDIR + "costs_{year}.csv" # costs_{year}.csv must be present in the folder
+        output:
+            "resources/" + RDIR + "costs_{year}.csv",
+        run:
+            copyfile(input[0], output[0])
 
 rule build_demand_profiles:
     params:
