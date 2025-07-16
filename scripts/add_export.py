@@ -264,7 +264,7 @@ def add_export(n, exp_carrier, volume, price, profile):
         
         # TODO: decide if we want liquefied H2. Easy to implement, but complicates result analysis.
         
-        n.add(
+        n.madd(
             "Link",
             buses_ports + " export",
             bus0=buses_ports,
@@ -297,7 +297,7 @@ def add_export(n, exp_carrier, volume, price, profile):
         buses_ports = n.buses.loc[spatial.nodes_ports + " " + ref_bus_carrier].index
         logger.info(f"Adding green export links from {buses_ports} to central {exp_carrier} export bus, "
                     f"with price {price} and CO2 intensity {co2_intensity}")
-        n.add(
+        n.madd(
             "Link",
             buses_ports + " export",
             bus0=buses_ports,
