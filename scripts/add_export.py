@@ -325,9 +325,9 @@ def add_export(n, exp_carrier, volume, price, profile):
         # add endogenous export by implementing a negative generation
         n.add(
             "Generator",
-            exp_carrier + " export load",
+            exp_carrier + " export",
             bus=exp_carrier + " export bus",
-            carrier=exp_carrier + " export load",
+            carrier=exp_carrier + " export",
             p_nom=1e7, #volume * 0.01,  # TODO: check if setting p_nom to 1% of annual export volume is interesting
             p_max_pu=0, 
             p_min_pu=-1,
@@ -337,7 +337,7 @@ def add_export(n, exp_carrier, volume, price, profile):
             logger.info(f"Adding global constraint to limit export of {exp_carrier} to {volume/1e6} TWh/a")
             n.add(
                 "GlobalConstraint",
-                exp_carrier + " export load",
+                exp_carrier + " export",
                 type="operational_limit",
                 sense="<=",
                 constant=volume,
@@ -355,9 +355,9 @@ def add_export(n, exp_carrier, volume, price, profile):
                     f"with a {profile_type} profile type.")
         n.add(
             "Load",
-            exp_carrier + " export load",
+            exp_carrier + " export",
             bus=exp_carrier + " export bus",
-            carrier=exp_carrier + " export load",
+            carrier=exp_carrier + " export",
             p_set=profile,
         )
     else: 
