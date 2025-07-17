@@ -488,10 +488,11 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: false # if true then custom custom_res_pot_{tech}_{year}_{dr}.csv and custom_res_ins_{tech}_{year}_{dr}.csv files must be placed in "data/custom/renewables"
+    update_data: true # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
     carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
+    carriers_to_drop: ["offwind-ac", "offwind-dc"] 
     resource_classes: 3
-    overwrite_capital_costs: false # if false, then the discountrate wildcard value is also ignored when looking for the custom file
+    overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
   elec_demand: false
   heat_demand: false
   industry_demand: false
