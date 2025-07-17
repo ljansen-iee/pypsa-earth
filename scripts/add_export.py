@@ -508,7 +508,7 @@ def add_green_export_technology_constraint(n, technology, export_carrier):
     technology : str
         Carrier name for production links (e.g., "Fischer-Tropsch", "H2 electrolysis")
     export_carrier : str
-        Carrier name for export links (e.g., "oil export", "H2 export")
+        Carrier name for export links (e.g., "FT export", "H2 export")
 
     Returns
     -------
