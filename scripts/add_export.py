@@ -256,13 +256,20 @@ def add_export(n, exp_carrier, volume, price, profile):
         y=y_export,
     )
 
+    # add links for H2 and NH3 export
     if exp_carrier in ["H2", "NH3"]:
 
-        buses_ports = n.buses.loc[spatial.nodes_ports + " " + exp_carrier].index
+        try: 
+            buses_ports = n.buses.loc[spatial.nodes_ports + " " + exp_carrier].index
+        except KeyError:
+            raise KeyError(
+                f"No buses found for {exp_carrier}. "
+                "Ensure that the carrier (e.g. ammonia) is activated in the config."
+            )
         logger.info(f"Adding green export links from {buses_ports} to central {exp_carrier} export bus, "
                     f"with price {price}")
         
-        # TODO: decide if we want liquefied H2. Easy to implement, but complicates result analysis.
+        # TODO: decide if we want add liquefaction as a intermediate step. Easy to implement, but complicates result analysis.
         
         n.madd(
             "Link",
@@ -272,10 +279,10 @@ def add_export(n, exp_carrier, volume, price, profile):
             carrier=exp_carrier + " export",
             p_nom=1e7, #volume * 0.01,  # TODO: check if setting p_nom to 1% of annual export volume is interesting
             efficiency=1,
-            marginal_cost=price*-1,
+            marginal_cost=-price,
         )
 
-
+    # add links for FT and MeOH with accounting for CO2
     elif exp_carrier in ["FT","MeOH"]: 
         # For the green hydrocarbon export, the reference bus carrier are oil, methanol or gas.
         # An extra constraints will be added in solve_network to ensure that the green liquid fuel conversion
@@ -294,7 +301,14 @@ def add_export(n, exp_carrier, volume, price, profile):
         }
         co2_intensity = costs.at[co2_i[exp_carrier][0], co2_i[exp_carrier][1]]
         
-        buses_ports = n.buses.loc[spatial.nodes_ports + " " + ref_bus_carrier].index
+        try: 
+            buses_ports = n.buses.loc[spatial.nodes_ports + " " + ref_bus_carrier].index
+        except KeyError:
+            raise KeyError(
+                f"No buses found for {exp_carrier}. "
+                "Ensure that the carrier (e.g. methanol) is activated in the config."
+            )
+        
         logger.info(f"Adding green export links from {buses_ports} to central {exp_carrier} export bus, "
                     f"with price {price} and CO2 intensity {co2_intensity}")
         n.madd(
@@ -308,7 +322,7 @@ def add_export(n, exp_carrier, volume, price, profile):
             p_nom=1e7, #volume * 0.01,  # TODO: check if setting p_nom to 1% of annual export volume is interesting
             efficiency=1,
             efficiency2=co2_intensity,
-            marginal_cost=price*-1,
+            marginal_cost=-price,
         )
     else:
         raise NotImplementedError(f"Export carrier {exp_carrier} not implemented")
@@ -339,8 +353,8 @@ def add_export(n, exp_carrier, volume, price, profile):
                 "GlobalConstraint",
                 exp_carrier + " export",
                 type="operational_limit",
-                sense="<=",
-                constant=volume,
+                sense=">=", # ">=" because the export generators p is negative.
+                constant=-volume,
             )
 
     elif snakemake.params.export_endogenous is False:
@@ -409,7 +423,7 @@ if __name__ == "__main__":
             sopts="3H",
             discountrate="0.082",
             demand="NZ",
-            eopts="H2m2+H2v2", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
+            eopts="H2m2+H2v2+NH3", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
             # configfile="test/config.test1.yaml",
         )
 
