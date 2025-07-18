@@ -146,14 +146,14 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: true # if true then custom custom_res_pot_{tech}_{year}_{dr}.csv and custom_res_ins_{tech}_{year}_{dr}.csv files must be placed in "data/custom/renewables"
+    update_data: true # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
     carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
     carriers_to_drop: ["offwind-ac", "offwind-dc"] 
     resource_classes: 3
-    overwrite_costs: false # if false, then the discountrate wildcard value is also ignored when looking for the custom file
+    overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
   elec_demand: false
   heat_demand: false
-  industry_totals: false # total industry energy and feedstock demands by country
+  industry_totals: true # total industry energy and feedstock demands by country
   industry_database: false
   transport_demand: false
   water_costs: false
@@ -245,18 +245,24 @@ sector:
   # land transport includes road and rail. 
   # Consider share of rail transport and country-specific issues with overhead electricity lines for rail system --> larger H2 share
     AB_2030: 0.00
+    AT_2030: 0.00
     NZ_2030: 0.00
     AB_2035: 0.01
+    AT_2035: 0.02
     NZ_2035: 0.02
     AB_2050: 0.08
+    AT_2050: 0.12
     NZ_2050: 0.12
 
   land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
     AB_2030: 0.03
+    AT_2030: 0.05
     NZ_2030: 0.05
     AB_2035: 0.08
+    AT_2035: 0.12
     NZ_2035: 0.12
     AB_2050: 0.45
+    AT_2050: 0.68
     NZ_2050: 0.68
 
   co2_network: true
@@ -271,10 +277,13 @@ sector:
   # Fischer-tropsch based shipping e-fuel share is result of optimisation and co2limit. Co2L must consider international shipping emissions. --> to be discussed.
   shipping_hydrogen_share: #1.0
     AB_2030: 0.02
+    AT_2030: 0.05
     NZ_2030: 0.05
     AB_2035: 0.05
+    AT_2035: 0.10
     NZ_2035: 0.10
     AB_2050: 0.25
+    AT_2050: 0.35
     NZ_2050: 0.35
 
   #gadm_level: 1
