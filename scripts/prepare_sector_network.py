@@ -592,6 +592,63 @@ def add_hydrogen(n, costs):
             )
 
 
+def add_ammonia(n, costs):
+    
+    n.add("Carrier", "N2", unit="t_N2")
+    
+    n.madd(
+        "Bus",
+        spatial.nitrogen.nodes,
+        carrier="N2",
+    )
+    # NB: electricity input for ASU is included in the Haber-Bosch electricity-input.
+    n.madd(
+        "Generator",
+        spatial.nitrogen.nodes,
+        bus=spatial.nitrogen.nodes,
+        p_nom_extendable=True,
+        carrier="air separation unit",
+        capital_cost=costs.at["air separation unit", "fixed"], #Currency/t_N2
+    )
+    
+    n.add("Carrier", "NH3")
+    
+    n.madd(
+        "Bus",
+        spatial.ammonia.nodes,
+        carrier="NH3",
+    )
+    
+    eff = 1 / costs.at["Haber-Bosch", "electricity-input"]
+    n.madd(
+        "Link",
+        nodes + " Haber-Bosch",
+        bus0=nodes,
+        bus1=spatial.ammonia.nodes,
+        bus2=spatial.h2.nodes,
+        bus3=spatial.nitrogen.nodes,
+        p_nom_extendable=True,
+        carrier="Haber-Bosch",
+        efficiency=eff,
+        efficiency2=-costs.at["Haber-Bosch", "hydrogen-input"] * eff,
+        efficiency3=-costs.at["Haber-Bosch", "nitrogen-input"] * eff,
+        capital_cost=costs.at["Haber-Bosch", "fixed"] * eff,
+        marginal_cost=costs.at["Haber-Bosch", "VOM"] * eff,
+    )
+    
+    # Ammonia Storage
+    n.madd(
+        "Store",
+        spatial.ammonia.nodes,
+        bus=spatial.ammonia.nodes,
+        e_nom_extendable=True,
+        e_cyclic=True,
+        carrier="ammonia store",
+        capital_cost=costs.at["NH3 (l) storage tank incl. liquefaction", "fixed"],
+        lifetime=costs.at["NH3 (l) storage tank incl. liquefaction", "lifetime"],
+    )
+
+
 def define_spatial(nodes, options):
     """
     Namespace for spatial.
@@ -702,6 +759,15 @@ def define_spatial(nodes, options):
         spatial.lignite.locations = ["Earth"]
 
     spatial.lignite.df = pd.DataFrame(vars(spatial.lignite), index=spatial.nodes)
+
+    spatial.nitrogen = SimpleNamespace()
+    spatial.nitrogen.nodes = ["N2"]
+    
+    spatial.ammonia = SimpleNamespace()
+    spatial.ammonia.nodes = nodes + " NH3"
+
+    spatial.h2 = SimpleNamespace()
+    spatial.h2.nodes = nodes + " H2"
 
     return spatial
 
@@ -1001,21 +1067,6 @@ def add_co2(n, costs):
         bus=spatial.co2.nodes,
     )
 
-    # logger.info("Adding CO2 network.")
-    co2_links = create_network_topology(n, "CO2 pipeline ")
-
-    cost_onshore = (
-        (1 - co2_links.underwater_fraction)
-        * costs.at["CO2 pipeline", "fixed"]
-        * co2_links.length
-    )
-    cost_submarine = (
-        co2_links.underwater_fraction
-        * costs.at["CO2 submarine pipeline", "fixed"]
-        * co2_links.length
-    )
-    capital_cost = cost_onshore + cost_submarine
-
 
 def add_aviation(n, cost):
     all_aviation = ["total international aviation", "total domestic aviation"]
@@ -1281,6 +1332,15 @@ def h2_hc_conversions(n, costs):
                 lifetime=costs.at["SMR", "lifetime"],
             )
 
+
+def add_methanol(n, costs):
+
+    logger.info("Add methanol")
+    add_carrier_buses(n, "methanol")
+
+    # methanol reforming
+
+    # methanol reforming with cc
 
 def add_shipping(n, costs):
     ports = pd.read_csv(
@@ -2913,14 +2973,13 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "prepare_sector_network",
             simpl="",
-            clusters="3flex",
+            clusters="10",
             ll="copt",
-            opts="Co2L-4H",
-            planning_horizons="2030",
-            sopts="144h",
-            discountrate=0.071,
-            demand="AB",
-            altdemands= "MA_iee_GlobalNZ",
+            opts="Co2L0.24",
+            planning_horizons="2050",
+            sopts="3H",
+            discountrate=0.082,
+            demand="NZ",
         )
     
     # Load population layout
@@ -3054,7 +3113,13 @@ if __name__ == "__main__":
     # remove H2 and battery technologies added in elec-only model
     remove_carrier_related_components(n, carriers_to_drop=["H2", "battery", "biomass"])
 
-    add_hydrogen(n, costs)  # TODO add costs
+    add_hydrogen(n, costs)
+
+    if options.get("ammonia", False):
+        add_ammonia(n, costs)
+
+    if options.get("methanol", False):
+            add_methanol(n, costs)
 
     add_storage(n, costs)
 
@@ -3094,7 +3159,9 @@ if __name__ == "__main__":
             n = average_every_nhours(n, m.group(0))
             break
 
-    # TODO add co2 limit here, if necessary
+    
+
+    # TODO add co2 limit here, if necessary.
     # co2_limit_pu = eval(sopts[0][5:])
     # co2_limit = co2_limit_pu *
     # # Add co2 limit

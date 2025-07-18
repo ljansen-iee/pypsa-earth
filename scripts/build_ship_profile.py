@@ -70,11 +70,12 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_ship_profile",
             h2export="120",
+            eopts="H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
         )
 
     # Get parameters from config and wildcard
-    ship_opts = snakemake.params.ship_opts
-    export_volume = eval(snakemake.wildcards.h2export)
+    ship_opts = snakemake.params.export_ship
+    export_volume = eval("120")
 
     # Create export profile
     if export_volume > 0:

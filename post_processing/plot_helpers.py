@@ -73,7 +73,7 @@ def save_stats_dict(stats_dict, stats_name, summary_dir):
 
 def read_stats_dict(stats_name, summary_dir, keys=[]):
     stats_dict = {}
-    index_cols = ["run_name_prefix", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "h2export"]
+    index_cols = ["run_name_prefix", "run_name", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "eopts"]
     for key in keys:
         stats_dict[key] = read_csv_nafix(summary_dir / f"{stats_name}_{key}.csv", index_col=index_cols)
         stats_dict[key].index.set_names(index_cols, inplace=True)
@@ -85,11 +85,11 @@ def consistency_check(df):
 
     df = df.copy()
     # Check if variable values are unique for each run_name_prefix, scen, and year
-    duplicates = df.duplicated(subset=["run_name_prefix", "scen", "year", "country", "variable"], keep=False)
+    duplicates = df.duplicated(subset=["run_name_prefix", "run_name", "scen", "year", "country", "variable"], keep=False)
 
     if duplicates.any():
-        raise ValueError("Duplicate variable values found for the same run_name_prefix, scen, year, country, variable.")
-
+        raise ValueError("Duplicate variable values found for the same run_name_prefix, run_name, scen, year, country, variable.")
+    df = df[~duplicates]
 
 def drop_index_levels(df, to_drop=[]):
     """
@@ -108,25 +108,22 @@ def drop_index_levels(df, to_drop=[]):
 
     return df
 
-def set_scen_col_for_h2g_a(df):
-    """
-    Set combined scenario str (for plots).
-    NB: This is specific to the experiment and should be adapted for other experiments.
-    """
-    df = df.copy()
-    
-    df["scen"] = df["h2export"].div(33.3333).round(1).astype(str) + "MtH2export"
-    df = df.drop(columns=["h2export"])
-    #df["scen"] = df.apply(lambda row: "_".join([f"{col}_{row[col]}" for col in df.columns if col not in cols_to_ignore]), axis=1)
-    #df["scen"] = df.apply(lambda row: "_".join([f"{row[col]}" for col in df.columns if col not in cols_to_ignore]), axis=1)
 
-    return df
 
-def prepare_dataframe(stats_df, idx_group, round=1, drop_zero=True):
+from typing import Callable, Any, Hashable
+import pandas as pd
+
+def prepare_dataframe(
+    stats_df: pd.DataFrame,
+    idx_group: Any,
+    set_scen_col_name: Callable[[pd.DataFrame], pd.DataFrame],
+    round: int = 1,
+    drop_zero: bool = True
+) -> pd.DataFrame:
     df = stats_df.copy().loc[idx_group].reset_index()
-    df = set_scen_col_for_h2g_a(df)
-    df = df.melt(id_vars=["run_name_prefix", "scen", "year", "country"]).groupby(
-        ["run_name_prefix", "scen", "year", "country", "variable"], as_index=False
+    df = set_scen_col_name(df)
+    df = df.melt(id_vars=["run_name_prefix", "run_name", "scen", "year", "country"]).groupby(
+        ["run_name_prefix", "run_name", "scen", "year", "country", "variable"], as_index=False
     ).sum().round(round)
 
     if drop_zero:
@@ -146,13 +143,13 @@ def get_supply_demand_from_balance(stats_df, threshold=0.01, round=1):
     Get supply and demand from balance.
     """
     supply_df = stats_df[stats_df["value"]>=threshold].copy()
-    supply_df = supply_df.groupby(["run_name_prefix","scen","year","country", "variable"], as_index=False).sum().round(round)
-    supply_sum_df = supply_df.groupby(["scen","year","country"]).sum(numeric_only=True).round(round)
+    supply_df = supply_df.groupby(["run_name_prefix", "run_name", "scen","year","country", "variable"], as_index=False).sum().round(round)
+    supply_sum_df = supply_df.groupby(["run_name_prefix", "run_name", "scen","year","country"]).sum(numeric_only=True).round(round)
 
     demand_df = stats_df[stats_df["value"]<=-threshold].copy()
     demand_df["value"] *= -1 
-    demand_df = demand_df.groupby(["run_name_prefix","scen","year","country", "variable"], as_index=False).sum().round(round)
-    demand_sum_df = demand_df.groupby(["scen","year","country"]).sum(numeric_only=True).round(round)
+    demand_df = demand_df.groupby(["run_name_prefix", "run_name", "scen","year","country", "variable"], as_index=False).sum().round(round)
+    demand_sum_df = demand_df.groupby(["run_name_prefix", "run_name", "scen","year","country"]).sum(numeric_only=True).round(round)
 
     return supply_df, supply_sum_df, demand_df, demand_sum_df
 

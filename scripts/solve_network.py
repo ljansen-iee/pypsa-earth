@@ -101,6 +101,8 @@ def prepare_network(n, solve_opts, config):
         for df in (
             n.generators_t.p_max_pu,
             n.generators_t.p_min_pu,
+            n.links_t.p_max_pu,
+            n.links_t.p_min_pu,
             n.storage_units_t.inflow,
         ):
             df.where(df > solve_opts["clip_p_max_pu"], other=0.0, inplace=True)
@@ -110,16 +112,16 @@ def prepare_network(n, solve_opts, config):
         n.line_volume_limit_dual = n.global_constraints.at["lv_limit", "mu"]
 
     if solve_opts.get("load_shedding"):
-        n.add("Carrier", "Load")
+        n.add("Carrier", "load shedding", color="#dd2e23", nice_name="Load shedding")
         n.madd(
             "Generator",
             n.buses.index,
-            " load",
+            " load shedding",
             bus=n.buses.index,
-            carrier="load",
+            carrier="load shedding",
             sign=1,
             marginal_cost=solve_opts.get("load_shedding") * 1000,  # convert to Eur/MWh
-            p_nom=1e12,
+            p_nom=1e6,
         )
 
     if solve_opts.get("noisy_costs"):
@@ -1098,15 +1100,15 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "solve_sector_network",
             simpl="",
-            clusters="4",
-            ll="c1",
-            opts="Co2L-4H",
-            planning_horizons="2030",
-            discountrate="0.071",
-            demand="AB",
+            clusters="10",
+            ll="copt",
+            opts="Co2L0.24",
+            planning_horizons="2050",
+            discountrate="0.082",
+            demand="NZ",
             sopts="144H",
-            h2export="120",
-            configfile="config.tutorial.yaml",
+            h2export="23.33",
+            # configfile="config.tutorial.yaml",
         )
 
     configure_logging(snakemake)

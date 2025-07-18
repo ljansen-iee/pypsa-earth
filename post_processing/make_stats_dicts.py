@@ -20,19 +20,14 @@ chdir_to_parent_dir()
 
 #%%
 
-run_name_prefix = "H2G_B" # Experiment name
+run_name_prefix = "DKS" # Experiment name
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_20250522"
+sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
-    #"H2G_A_EG_2035", "H2G_A_EG_2050", 
-    "MA_H2G_B_250522",
-    # "H2G_A_NA", 
-    # "H2G_A_MA", 
-    # "H2G_A1_CD", "H2G_A1_NA", 
-               #"NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"
-               ]
+    "DKS_EG_2050_eopts",
+]
 
 #%%
 
@@ -41,6 +36,7 @@ all_wildcards = {
     run_name: 
     {
         "run_name_prefix": [], 
+        "run_name": [],
         "countries": [], # ["EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"]
         "year": [], #2035, 2050
         "simpl": [],
@@ -50,7 +46,7 @@ all_wildcards = {
         "sopts": [], # 3H
         "discountrate": [], # 0.082
         "demand": [], # AB
-        "h2export": [] # 3.33
+        "eopts": [] # 3.33
     }
     for run_name in all_run_names
 }
@@ -70,6 +66,7 @@ all_postnetworks_dir = {
 
 for run_name, config in all_configs.items():
     all_wildcards[run_name]["run_name_prefix"].append(run_name_prefix)
+    all_wildcards[run_name]["run_name"].append(run_name)
     all_wildcards[run_name]["countries"].extend(config["countries"])
     all_wildcards[run_name]["year"].extend(config["scenario"]["planning_horizons"])
     all_wildcards[run_name]["simpl"].extend(config["scenario"]["simpl"])
@@ -79,12 +76,12 @@ for run_name, config in all_configs.items():
     all_wildcards[run_name]["sopts"].extend(config["scenario"]["sopts"])
     all_wildcards[run_name]["discountrate"].extend(config["costs"]["discountrate"])
     all_wildcards[run_name]["demand"].extend(config["scenario"]["demand"])
-    all_wildcards[run_name]["h2export"].extend(config["export"]["h2export"])
+    all_wildcards[run_name]["eopts"].extend(config["scenario"]["eopts"])
 
 
 files_in_folder = collect_files_from_directories(all_postnetworks_dir)
 
-cols = ["run_name_prefix", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "h2export"]
+cols = ["run_name_prefix", "run_name", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "eopts"]
 
 nc_files = pd.DataFrame(columns=cols + ["file"]).set_index(cols)
 
@@ -95,7 +92,7 @@ for run_name in all_run_names:
     for combination in wc_values_combinations:
         wc = dict(zip(wc_keys, combination))
         for file in files_in_folder[f"{run_name}"]:
-            if f"elec_s{wc['simpl']}_{wc['clusters']}_ec_l{wc['ll']}_{wc['opts']}_{wc['sopts']}_{wc['year']}_{wc['discountrate']}_{wc['demand']}_{wc['h2export']}export.nc" in file.name:
+            if f"elec_s{wc['simpl']}_{wc['clusters']}_ec_l{wc['ll']}_{wc['opts']}_{wc['sopts']}_{wc['year']}_{wc['discountrate']}_{wc['demand']}_exp{wc['eopts']}.nc" in file.name:
                 nc_files.at[combination, "file"] = file
                 print("Adding nc file for", wc)
             else:
@@ -105,7 +102,7 @@ for run_name in all_run_names:
 
 #%%
 
-# initialise dicts per metric with dataframes per bus_carrier or other groups
+# initialise dicts per metric (market balance, optimal capacities, costs, marginal prices) with dataframes per bus_carrier or other groups
 
 balance_dict = init_stats_dict(nc_files, keys=[
     "AC", "H2", "oil", "gas", "co2 stored", "co2",
@@ -116,9 +113,10 @@ optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2"], name="bus_c
 
 costs_dict = init_stats_dict(nc_files, keys=["capex", "opex"], name="costs")
 
-mean_marginal_prices = pd.DataFrame(index=nc_files.index, columns=["H2 export bus"])
-mean_marginal_prices.columns.name = "bus" # NB: this is spatially resolved.
-
+time_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus", "FT export bus", "NH3 export bus"])
+time_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
+load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus", "FT export bus", "NH3 export bus"])
+load_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
 
 for nc_files_idx in nc_files.index:
     
@@ -156,8 +154,17 @@ for nc_files_idx in nc_files.index:
             # drop energy between AC and distribution grid 
             balance_dict[bus_carrier] = balance_dict[bus_carrier].drop("electricity distribution grid", axis=1)  
 
-        #TODO: rename load carrier string of H2 export in the network from H2 to H2 export
+        # if bus_carrier == "H2" and ("H2 export" in n.loads.carrier.unique() or "H2 export load" in n.loads.carrier.unique()):
 
+        #     ds = (
+        #         n.statistics.energy_balance(bus_carrier="H2 export bus", drop_zero=True)
+        #         .dropna()
+        #         .groupby("carrier").sum()
+        #         .div(1e6)
+        #         .round(1)
+        #     )
+
+        #     balance_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
 
     ##### optimal production capacity per bus_carrier in GW
 
@@ -190,30 +197,39 @@ for nc_files_idx in nc_files.index:
     
     # ASSUMPTIONS: assume marginal costs of last unit can be earned as export price for all export
     # adding those revenues for export as negative opex costs
-    H2_export_price = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting!
-    costs_dict["opex"].at[nc_files_idx,"H2 export"] = -(
-        n.loads_t.p_set["H2 export load"].mul(n.buses_t.marginal_price["H2 export bus"]).sum()/1e9
-    )
+    # TODO: decide how to integrate revenues from exports in the costs_dict
+    # if bus_carrier + " export" in n.loads_t.p.columns.unique():
+    #     H2_export_price = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting!
+    #     costs_dict["opex"].at[nc_files_idx,"H2 export"] = -(
+    #         n.loads_t.p_set["H2 export"].mul(n.buses_t.marginal_price["H2 export bus"]).sum()/1e9
+    #     )
 
-    ##### time averaged marginal prices per bus_carrier in EUR/MWh
+    ##### time and load averaged marginal prices per bus_carrier in EUR/MWh
 
-    value = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting! 
-    mean_marginal_prices.at[nc_files_idx,"H2 export bus"] = value
+    for bus_carrier in ["H2","FT","NH3"]:
+        buses = n.buses.loc[n.buses.index.str.contains(bus_carrier)]
+        for bus in buses.index:
+            value = n.buses_t.marginal_price[bus].mean() # NB: hourly pattern is interesting! 
+            time_avg_marginal_price.at[nc_files_idx, bus] = value
 
-
-    # TODO: add volume weighted average of marginal prices 
-
-    h2_buses = n.buses.loc[n.buses.index.str.contains("H2")]
-    for bus in h2_buses.index:
-        value = n.buses_t.marginal_price[bus].mean() # NB: hourly pattern is interesting! 
-        mean_marginal_prices.at[nc_files_idx, bus] = value
-    # value = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting! 
-    # mean_marginal_prices.at[nc_files_idx,"H2 export bus"] = value
+            if bus_carrier + " export" in n.loads_t.p.columns.unique():
+                demand = n.loads_t.p[bus_carrier + " export"]
+                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
+                load_avg_marginal_price.at[nc_files_idx, bus] = value
+            elif bus_carrier + " export" in n.generators_t.p.columns.unique():
+                print("No exogenous load for ", bus_carrier, " export bus found")
+                print("Marginal prices are impacted by endogenous export and export prices!")
+                demand = -1*n.generators_t.p[bus_carrier + " export"]
+                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
+                load_avg_marginal_price.at[nc_files_idx, bus] = value
+            else:
+                print("No exogenous or endogenous load found for ", bus_carrier, " export bus")
 
 
 # %%
 save_stats_dict(balance_dict, "balance_dict", sdir)
 save_stats_dict(optimal_capacity_dict, "optimal_capacity_dict", sdir)
 save_stats_dict(costs_dict, "costs_dict", sdir)
-save_stats_dict(mean_marginal_prices, "mean_marginal_prices", sdir)
+save_stats_dict(time_avg_marginal_price, "time_avg_marginal_price", sdir)
+save_stats_dict(load_avg_marginal_price, "load_avg_marginal_price", sdir)
 # %%

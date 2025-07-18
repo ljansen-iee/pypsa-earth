@@ -3,10 +3,12 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - pip
   - pypsa>=0.34
   - snakemake-minimal<8
   - jupyterlab
   - plotly
   
   - pip:
-    - kaleido==0.1.0post1 # for image export with plotly
+    - kaleido==0.1.0post1 # for image export with plotly. locked version is for windows
+    # - kaleido

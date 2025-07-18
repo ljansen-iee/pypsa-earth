@@ -11,6 +11,7 @@ Created on Thu Jul 14 21:18:06 2022.
 import logging
 import os
 from itertools import product
+from pathlib import Path
 
 import pandas as pd
 from _helpers import BASE_DIR, mock_snakemake, read_csv_nafix
@@ -54,37 +55,90 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_industry_demand",
             simpl="",
-            clusters="4",
-            planning_horizons=2030,
-            demand="AB",
+            clusters="10",
+            planning_horizons=2050,
+            demand="NZ",
         )
 
     countries = snakemake.params.countries
 
-    if snakemake.params.industry_demand:
+    clean_industry_list = [
+        "iron and steel",
+        "chemical and petrochemical",
+        "non-ferrous metals",
+        "non-metallic minerals",
+        "transport equipment",
+        "machinery",
+        "mining and quarrying",
+        "food and tobacco",
+        "paper pulp and print",
+        "wood and wood products",
+        "textile and leather",
+        "construction",
+        "other",
+    ]
+
+    all_carriers = [
+        "electricity",
+        "gas",
+        "coal",
+        "oil",
+        "hydrogen",
+        "biomass",
+        "low-temperature heat",
+        "ammonia",
+        "methanol",
+        "process emissions",
+    ]
+
+    def fill_and_merge_other_industries(industry_totals_df):
+        # Fill missing carriers with 0s
+        for country in countries:
+            carriers_present = industry_totals_df.xs(country, level=0).index
+            missing_carriers = set(all_carriers) - set(carriers_present)
+            for carrier in missing_carriers:
+                # Add the missing carrier with a value of 0
+                if missing_carriers == "process emissions":
+                    raise ValueError(
+                        "Process emissions should not be missing. Check the custom data file."
+                    )
+                else:
+                    industry_totals_df.loc[(country, carrier), :] = 0
+
+        # temporary fix: merge other manufacturing, construction and non-fuel into other and drop the column
+        other_cols = list(set(industry_totals_df.columns) - set(clean_industry_list))
+        if len(other_cols) > 0:
+            industry_totals_df["other"] += industry_totals_df[other_cols].sum(axis=1)
+            industry_totals_df.drop(columns=other_cols, inplace=True)
+        return industry_totals_df
+
+    if snakemake.params.custom_industry_totals:
         _logger.info(
-            "Fetching custom industry demand data.. expecting file at 'data/custom/industry_demand_{0}_{1}.csv'".format(
-                snakemake.wildcards["demand"], snakemake.wildcards["planning_horizons"]
+            "Fetching custom industry demand data.. expecting file at 'data/custom/industry_totals_{0}_{1}.csv'".format(
+                snakemake.wildcards["planning_horizons"], snakemake.wildcards["demand"]
             )
         )
 
-        industry_demand = pd.read_csv(
+        industry_totals = pd.read_csv(
             os.path.join(
                 BASE_DIR,
-                "data/custom/industry_demand_{0}_{1}.csv".format(
-                    snakemake.wildcards["demand"],
+                "data/custom/industry_totals_{0}_{1}.csv".format(
                     snakemake.wildcards["planning_horizons"],
+                    snakemake.wildcards["demand"]
                 ),
             ),
             index_col=[0, 1],
         )
+
+        industry_totals = fill_and_merge_other_industries(industry_totals)
+
         keys_path = snakemake.input.industrial_distribution_key
 
         dist_keys = pd.read_csv(
             keys_path, index_col=0, keep_default_na=False, na_values=[""]
         )
         production_base = pd.DataFrame(
-            1, columns=industry_demand.columns, index=countries
+            1, columns=industry_totals.columns, index=countries
         )
         nodal_keys = country_to_nodal(production_base, dist_keys)
 
@@ -94,7 +148,7 @@ if __name__ == "__main__":
             nodal_production_tom_co = nodal_keys[
                 nodal_keys.index.to_series().str.startswith(country)
             ]
-            industry_base_totals_co = industry_demand.loc[country]
+            industry_base_totals_co = industry_totals.loc[country]
             # final energy consumption per node and industry (TWh/a)
             nodal_df_co = nodal_production_tom_co.dot(industry_base_totals_co.T)
             nodal_df = pd.concat([nodal_df, nodal_df_co])
@@ -143,22 +197,6 @@ if __name__ == "__main__":
 
         # production of industries per node compared to current
         nodal_production_tom = country_to_nodal(production_tom, dist_keys)
-
-        clean_industry_list = [
-            "iron and steel",
-            "chemical and petrochemical",
-            "non-ferrous metals",
-            "non-metallic minerals",
-            "transport equipment",
-            "machinery",
-            "mining and quarrying",
-            "food and tobacco",
-            "paper pulp and print",
-            "wood and wood products",
-            "textile and leather",
-            "construction",
-            "other",
-        ]
 
         emission_factors = {  # Based on JR data following PyPSA-EUR
             "iron and steel": 0.025,
@@ -289,31 +327,10 @@ if __name__ == "__main__":
                 pass
         industry_base_totals = industry_base_totals.sort_index()
 
-        all_carriers = [
-            "electricity",
-            "gas",
-            "coal",
-            "oil",
-            "hydrogen",
-            "biomass",
-            "low-temperature heat",
-        ]
 
-        # Fill missing carriers with 0s
-        for country in countries:
-            carriers_present = industry_base_totals.xs(country, level=0).index
-            missing_carriers = set(all_carriers) - set(carriers_present)
-            for carrier in missing_carriers:
-                # Add the missing carrier with a value of 0
-                industry_base_totals.loc[(country, carrier), :] = 0
-
-        # temporary fix: merge other manufacturing, construction and non-fuel into other and drop the column
-        other_cols = list(set(industry_base_totals.columns) - set(clean_industry_list))
-        if len(other_cols) > 0:
-            industry_base_totals["other"] += industry_base_totals[other_cols].sum(
-                axis=1
-            )
-            industry_base_totals.drop(columns=other_cols, inplace=True)
+        industry_base_totals = fill_and_merge_other_industries(
+            industry_base_totals
+        )
 
         nodal_df = pd.DataFrame()
 
@@ -325,6 +342,29 @@ if __name__ == "__main__":
             # final energy consumption per node and industry (TWh/a)
             nodal_df_co = nodal_production_tom_co.dot(industry_base_totals_co.T)
             nodal_df = pd.concat([nodal_df, nodal_df_co])
+
+        # save industry_totals per country and carrier 
+        # with tomorrows production level of default (non-custom) workflow
+        industry_totals = industry_base_totals.mul(production_tom,level=0)
+
+        
+        # Compare sums with precision threshold using numpy.allclose # TODO can be removed after debugging
+        import numpy as np
+        for country in countries:
+            country_sum = industry_totals.sum(axis=1).xs(country)
+            nodal_sum = nodal_df.sum()
+            if not np.allclose(country_sum, nodal_sum, atol=0.001):
+                diff = (country_sum - nodal_sum).abs()
+                raise ValueError(
+                    f"Sum mismatch for {country}: max diff {diff.max():.4f} exceeds threshold 0.001"
+                )
+        
+        path = Path(BASE_DIR) / Path(snakemake.params.resource_demand_path)
+        fn = "industrial_totals_{0}_{1}.csv".format(
+            snakemake.wildcards["planning_horizons"], snakemake.wildcards["demand"]
+        )
+        print(f"Saving industrial totals to {path / fn} for validation purposes.")
+        industry_totals.to_csv(path / fn,float_format="%.2f")
 
     rename_sectors = {
         "elec": "electricity",
