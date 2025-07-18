@@ -153,7 +153,7 @@ custom_data:
     overwrite_costs: false # if false, then the discountrate wildcard value is also ignored when looking for the custom file
   elec_demand: false
   heat_demand: false
-  industry_demand: false
+  industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
   transport_demand: false
   water_costs: false

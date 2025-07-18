@@ -495,7 +495,7 @@ custom_data:
     overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
   elec_demand: false
   heat_demand: false
-  industry_demand: false
+  industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
   transport_demand: false
   water_costs: false
