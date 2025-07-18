@@ -351,8 +351,9 @@ def add_export(n, exp_carrier, volume, price, profile):
             logger.info(f"Adding global constraint to limit export of {exp_carrier} to {volume/1e6} TWh/a")
             n.add(
                 "GlobalConstraint",
-                exp_carrier + " export",
+                exp_carrier + "_max_export_limit",
                 type="operational_limit",
+                carrier_attribute=exp_carrier + " export",
                 sense=">=", # ">=" because the export generators p is negative.
                 constant=-volume,
             )
@@ -420,10 +421,10 @@ if __name__ == "__main__":
             ll="copt",
             opts="Co2L0.24",
             planning_horizons="2050",
-            sopts="3H",
+            sopts="144H",
             discountrate="0.082",
-            demand="NZ",
-            eopts="H2m2+H2v2+NH3", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
+            demand="AT",
+            eopts="H2v1.01+NH3v1.01+FTv1.01", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
             # configfile="test/config.test1.yaml",
         )
 
@@ -490,87 +491,3 @@ if __name__ == "__main__":
 
     logger.info("Network successfully exported")
 
-
-def add_green_export_technology_constraint(n, technology, export_carrier):
-    """
-    Add a constraint to ensure that the production of a specified carrier (e.g., via a specific process)
-    is greater than or equal to the exported quantity of a corresponding export commodity.
-    This is useful for linking an export flow to its specific production route.
-
-    This creates an inequality constraint with sense ">=":
-    LHS: Sum of (Link-p * efficiency) for all links with the specified technology
-    RHS: Sum of Link-p for all links with the specified export_carrier
-
-    Parameters
-    ----------
-    n : pypsa.Network
-        Network to add constraint to
-    technology : str
-        Carrier name for production links (e.g., "Fischer-Tropsch", "H2 electrolysis")
-    export_carrier : str
-        Carrier name for export links (e.g., "FT export", "H2 export")
-
-    Returns
-    -------
-    None
-
-    Example
-    -------
-    >>> add_export_technology_constraint(n, "H2", "H2 export")
-    # Adds constraint: Sum(link_p * efficiency) >= Sum(export_link_p)
-
-    Note
-    ----
-    This function should be called after the network model has been built but before
-    optimization (e.g., in the extra_functionality function of solve_network.py).
-    """
-    from xarray import DataArray
-
-    logger.info(f"Adding export technology constraint for: {technology} -> {export_carrier}")
-
-    m = n.model
-    sns = n.snapshots
-
-    weightings = n.snapshot_weightings.loc[sns]
-
-    if n._multi_invest:
-        period_weighting = n.investment_period_weightings.years[sns.unique("period")]
-        weightings = weightings.mul(period_weighting, level=0, axis=0)
-
-    # Get all production links (technology)
-    links = n.links.query(f"carrier == '{technology}'")
-
-    # Get all export links (export_carrier)
-    export_links = n.links.query(f"carrier == '{export_carrier}'")
-
-    if links.empty:
-        logger.warning(f"No production links found for carrier '{technology}'. Skipping constraint.")
-        return
-
-    if export_links.empty:
-        logger.warning(f"No export links found for carrier '{export_carrier}'. Skipping constraint.")
-        return
-
-    # LHS: Sum of (Link-p * efficiency) for production links
-    link_p = m["Link-p"].loc[sns, links.index]
-    w = DataArray(weightings.generators[sns])
-    if "dim_0" in w.dims:
-        w = w.rename({"dim_0": "snapshot"})
-
-    efficiency = links["efficiency"]
-    lhs_expr = (link_p * efficiency * w).sum()
-
-    # RHS: Sum of Link-p for export links
-    export_link_p = m["Link-p"].loc[sns, export_links.index]
-    rhs_expr = (export_link_p * w).sum()
-
-    constraint_name = f"green_export_tech_constraint-{export_carrier}"
-    m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
-
-    logger.info(f"Added constraint '{constraint_name}': "
-                f"{len(links)} production links of type {technology} >= "
-                f"consumption of {len(export_links)} export links {export_carrier}")
-
-n.optimize.create_model(snapshots = n.snapshots)
-
-add_green_export_technology_constraint(n, "H2 Electrolysis", "H2 export")

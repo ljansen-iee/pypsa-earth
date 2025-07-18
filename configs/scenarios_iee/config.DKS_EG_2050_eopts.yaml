@@ -47,10 +47,11 @@ scenario:
   - 2050
   sopts:
   # - "1H"
-  - "3H"
+  # - "3H"
+  - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
   # - "AB"
-  - "NZ" #TODO: use NZ!
+  - "AT" #TODO: use NZ!
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "H2m1.0+H2v1.0"
   - "H2m1.0+H2v0.5"
@@ -101,7 +102,7 @@ costs:
 
 policy_config:
   hydrogen:
-    temporal_matching: "no_res_matching" # either "h2_yearly_matching", "no_res_matching", "no_res_matching"
+    temporal_matching: "h2_hourly_matching" # either "h2_yearly_matching", "no_res_matching"
     spatial_matching: false
     additionality: false # RE electricity is equal to the amount required for additional hydrogen export compared to the 0 export case ("reference_case")
     allowed_excess: 1.0
@@ -121,11 +122,11 @@ fossil_reserves:
   oil: 0 # NB: fossil_reserves are implemented as store with e_initial, which may lead to unwanted fuel export in edge cases
 
 export:
-  endogenous: false # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
+  endogenous: true # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
   price: # market price at exit point (pre-trade) in Currency/MWh. Set to 0 for export target analysis with endogenous: false, for analysing marginal prices
-    H2: 0
-    NH3: 0
-    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    H2: 90
+    NH3: 130
+    FT: 160 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
     # MeOH: 150
     # HBI: 400
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false

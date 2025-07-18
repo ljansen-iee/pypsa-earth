@@ -887,6 +887,165 @@ def set_h2_colors(n):
     n.model.add_constraints(total_pink == rhs_pink, name="pink_h2_share")
 
 
+def add_linkp_gt_export_constraint(n, link_tech, export_carrier):
+    """
+    Add a constraint to ensure that the production of a specified carrier (e.g., via a specific process/link)
+    is greater than or equal to the exported quantity of a corresponding export commodity.
+    This is useful for linking an export flow to its specific production route.
+
+    This creates an inequality constraint with sense ">=":
+    LHS: Sum of (Link-p * efficiency) for all links with the specified link_tech
+    RHS: Sum of Link-p for all links with the specified export_carrier
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to add constraint to
+    link_tech : str
+        Carrier name for production links (e.g., "Fischer-Tropsch", "H2 electrolysis")
+    export_carrier : str
+        Carrier name for export links (e.g., "FT export", "H2 export")
+
+    Returns
+    -------
+    None
+
+    Example
+    -------
+    >>> n.optimize.create_model(snapshots = n.snapshots)
+    >>> add_linkp_gt_export_constraint(n, "H2", "H2 export")
+    # Adds constraint: Sum(link_p * efficiency) >= Sum(export_link_p)
+
+    Note
+    ----
+    This function should be called after the network model has been built but before
+    optimization (e.g., in the extra_functionality function of solve_network.py).
+    """
+    from xarray import DataArray
+
+    logger.info(f"Adding export link_tech constraint for: {link_tech} -> {export_carrier}")
+
+    m = n.model
+    sns = n.snapshots
+
+    weightings = n.snapshot_weightings.loc[sns]
+
+    if n._multi_invest:
+        period_weighting = n.investment_period_weightings.years[sns.unique("period")]
+        weightings = weightings.mul(period_weighting, level=0, axis=0)
+
+    # Get all production links (link_tech)
+    links = n.links.query(f"carrier == '{link_tech}'")
+
+    # Get all export links (export_carrier)
+    export_links = n.links.query(f"carrier == '{export_carrier}'")
+
+    if links.empty:
+        logger.warning(f"No production links found for carrier '{link_tech}'. Skipping constraint.")
+        return
+
+    if export_links.empty:
+        logger.warning(f"No export links found for carrier '{export_carrier}'. Skipping constraint.")
+        return
+
+    # LHS: Sum of (Link-p * efficiency) for production links
+    link_p = m["Link-p"].loc[sns, links.index]
+    w = DataArray(weightings.generators[sns])
+    if "dim_0" in w.dims:
+        w = w.rename({"dim_0": "snapshot"})
+
+    efficiency = links["efficiency"]
+    lhs_expr = (link_p * efficiency * w).sum()
+
+    # RHS: Sum of Link-p for export links
+    export_link_p = m["Link-p"].loc[sns, export_links.index]
+    rhs_expr = (export_link_p * w).sum()
+
+    constraint_name = f"green_export_tech_constraint-{export_carrier}"
+    m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
+
+    logger.info(f"Added constraint '{constraint_name}': "
+                f"{len(links)} production links of type {link_tech} >= "
+                f"consumption of {len(export_links)} export links {export_carrier}")
+
+
+def add_hourly_green_h2_constraint(n):
+    """
+    Add a constraint to ensure that the power generation from renewable sources (solar and onwind)
+    is greater than or equal to the power consumption of H2 electrolysis links (accounting for efficiency).
+    This constraint is applied hourly (per snapshot).
+
+    This creates an inequality constraint with sense ">=":
+    LHS: Sum of Generator-p for carriers ["solar", "onwind"]
+    RHS: Sum of (Link-p * efficiency) for links with carrier "H2 Electrolysis"
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network to add constraint to
+
+    Returns
+    -------
+    None
+
+    Example
+    -------
+    >>> n.optimize.create_model(snapshots = n.snapshots)
+    >>> add_hourly_green_h2_constraint(n)
+    # Adds constraint: Sum(renewable_gen_p) >= Sum(h2_electrolysis_p * efficiency)
+
+    Note
+    ----
+    This function should be called after the network model has been built but before
+    optimization (e.g., in the extra_functionality function of solve_network.py).
+    """
+    from xarray import DataArray
+
+    logger.info("Adding hourly H2 export constraint: renewable generation >= H2 electrolysis consumption")
+
+    m = n.model
+    sns = n.snapshots
+
+    weightings = n.snapshot_weightings.loc[sns]
+
+    if n._multi_invest:
+        period_weighting = n.investment_period_weightings.years[sns.unique("period")]
+        weightings = weightings.mul(period_weighting, level=0, axis=0)
+
+    # Get renewable generators (solar and onwind)
+    renewable_carriers = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
+    renewable_gens = n.generators.query(f"carrier in {renewable_carriers}")
+
+    # Get H2 electrolysis links
+    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+
+    if renewable_gens.empty:
+        logger.warning("No renewable generators found for carriers ['solar', 'onwind']. Skipping constraint.")
+        return
+
+    if h2_electrolysis_links.empty:
+        logger.warning("No H2 electrolysis links found. Skipping constraint.")
+        return
+
+    # LHS: Sum of Generator-p for renewable generators
+    gen_p = m["Generator-p"].loc[sns, renewable_gens.index]
+    w = DataArray(weightings.generators[sns])
+    if "dim_0" in w.dims:
+        w = w.rename({"dim_0": "snapshot"})
+    lhs_expr = (gen_p * w).sum()
+
+    # RHS: Sum of (Link-p) for H2 electrolysis links
+    link_p = m["Link-p"].loc[sns, h2_electrolysis_links.index]
+    # efficiency = h2_electrolysis_links["efficiency"] # p is electricity input, no need to multiply by efficiency
+    rhs_expr = (link_p * w).sum()
+
+    constraint_name = "add_hourly_green_h2_constraint"
+    m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
+
+    logger.info(f"Added constraint '{constraint_name}': "
+                f"{len(renewable_gens)} renewable generators >= "
+                f"electricity consumption of {len(h2_electrolysis_links)} H2 electrolysis links")
+
 def add_existing(n):
     if snakemake.wildcards["planning_horizons"] == "2050":
         directory = (
@@ -1032,7 +1191,14 @@ def extra_functionality(n, snapshots):
         == "no_res_matching"
     ):
         logger.info("no h2 export constraint set")
-
+    elif (
+        snakemake.config["policy_config"]["hydrogen"]["temporal_matching"]
+        == "h2_hourly_matching"
+    ):
+        logger.info("setting general H2 electrolysis to hourly greenness constraint")
+        # This constraints all H2 electrolysis. # TODO calculate h2 content of all exports and use that.
+        add_hourly_green_h2_constraint(n) 
+        
     else:
         raise ValueError(
             'H2 export constraint is invalid, check config["policy_config"]'
@@ -1047,6 +1213,16 @@ def extra_functionality(n, snapshots):
     if snakemake.config["sector"]["hydrogen"]["set_color_shares"]:
         logger.info("setting H2 color mix")
         set_h2_colors(n)
+
+    if n.links.carrier.str.contains("H2 export").any():
+        logger.info("adding H2 Electrolysis >= H2 export link constraint")
+        add_linkp_gt_export_constraint(n, "H2 Electrolysis", "H2 export")
+    if n.links.carrier.str.contains("NH3 export").any():
+        logger.info("adding Haber-Bosch >= NH3 export link constraint")
+        add_linkp_gt_export_constraint(n, "Haber-Bosch", "NH3 export")
+    if n.links.carrier.str.contains("FT export").any():
+        logger.info("adding Fischer-Tropsch >= FT export link constraint")
+        add_linkp_gt_export_constraint(n, "Fischer-Tropsch", "FT export")
 
     add_co2_sequestration_limit(n, snapshots)
 
@@ -1105,9 +1281,9 @@ if __name__ == "__main__":
             opts="Co2L0.24",
             planning_horizons="2050",
             discountrate="0.082",
-            demand="NZ",
+            demand="AT",
             sopts="144H",
-            h2export="23.33",
+            eopts="H2v1.01+NH3v1.01+FTv1.01",
             # configfile="config.tutorial.yaml",
         )
 

@@ -20,7 +20,7 @@ chdir_to_parent_dir()
 
 #%%
 
-run_name_prefix = "DKS" # Experiment name
+run_name_prefix = "DKS" # Experiment name. It can be freely chosen.
 
 sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary"
 sdir.mkdir(exist_ok=True, parents=True)
@@ -99,6 +99,8 @@ for run_name in all_run_names:
                 #print("File not found:", file.name, "for:", f"{run_name_prefix}_{wc["countries"]}")
                 continue
 
+if nc_files.empty:
+    raise ValueError("No files found for the given run names and wildcards. Please check the configurations and file names.")
 
 #%%
 

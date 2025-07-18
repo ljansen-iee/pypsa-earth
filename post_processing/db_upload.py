@@ -60,12 +60,12 @@ db_connection = db_connector(name="work_db_82")
 #%%
 chdir_to_parent_dir()
 
-run_name_prefix = "H2G_A" # Experiment name
+run_name_prefix = "Scenarios_AB_and_AT" # Experiment name
 
 sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_20250513"
 sdir.mkdir(exist_ok=True, parents=True)
 
-idx_group = idx_slice[["H2G_A"],:,:,:] 
+idx_group = idx_slice[["Scenarios_AB_and_AT"],:,:,:] 
 
 #%%
 balance_dict = read_stats_dict("balance_dict", sdir, keys=["AC", "H2", "oil", "gas", "co2 stored"])
