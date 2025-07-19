@@ -59,6 +59,7 @@ augmented_line_connection:
   
 cluster_options:
   simplify_network:
+    remove_stubs: false
     remove_stubs_across_borders: true
   s_threshold_fetch_isolated: 0.05 # [-] a share of the national load for merging an isolated network into a backbone network
   alternative_clustering: true # "False" use Voronoi shapes, "True" use GADM shapes
