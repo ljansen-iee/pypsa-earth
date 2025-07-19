@@ -70,6 +70,9 @@ load_options:
 electricity:
   co2base: 15.5e+6 # TODO per country: adjust using excel file and value for 2015 based on https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
   agg_p_nom_limits: data/agg_p_nom_minmax.csv
+  extendable_carriers:
+    Generator: [solar, onwind, OCGT]
+  renewable_carriers: [solar, onwind, hydro]
 
 costs:
   year: 2030
