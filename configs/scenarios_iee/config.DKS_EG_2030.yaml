@@ -28,8 +28,8 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "DKS_EG_2050_eopts" # use this to keep track of runs with different settings
-  sector_name: "DKS_EG_2050_eopts" # use this to keep track of sector scenario runs
+  name: "DKS_EG_2030" # use this to keep track of runs with different settings
+  sector_name: "DKS_EG_2030" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -39,16 +39,16 @@ scenario:
   ll: ["copt"]
   clusters: [10]
   opts: [
-    # Co2L0.59, 
-    Co2L0.24
+    Co2L0.80, 
+    # Co2L0.24
     ] # Co2L0.24 TODO per country: adjust factor (e.g. Co2L0.8 for 2035) and co2base (see below) per country and planning_horizon based on excel file
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  # - 2035
-  - 2050
+  - 2030
+  # - 2050
   sopts:
   # - "1H"
-  # - "3H"
-  - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
+  - "3H"
+  # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
   # - "AB"
   - "AT" #TODO: use NZ!
@@ -58,7 +58,7 @@ scenario:
   - "H2m1.0+H2v0.5"
   - "H2m1.0+NH3v1.0"
   - "H2m1.0+NH3v1.0+FTv1.0"
-  - "H2v1.01+NH3v1.01+FTv1.01" # endogenous: true
+  # - "H2v1.01+NH3v1.01+FTv1.01" # endogenous: true
 
 augmented_line_connection:
   add_to_snakefile: false # If True, includes this rule to the workflow
@@ -85,7 +85,7 @@ lines:
   length_factor: 1.25
 
 costs:
-  year: 2050
+  year: 2030
   version: v0.11.0
   discountrate: [0.082] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
@@ -122,19 +122,19 @@ fossil_reserves:
   oil: 0 # NB: fossil_reserves are implemented as store with e_initial, which may lead to unwanted fuel export in edge cases
 
 export:
-  endogenous: true # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
+  endogenous: false # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
   price: # market price at exit point (pre-trade) in Currency/MWh. Set to 0 for export target analysis with endogenous: false, for analysing marginal prices
-    H2: 90
-    NH3: 130
-    FT: 160 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
-    # MeOH: 150
-    # HBI: 400
+    H2: 0
+    NH3: 0
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
-    H2: 125
-    NH3: 10
-    FT: 10 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
-    # MeOH: 1000 # TWh/a
-    # HBI: 1000 # Mt/a
+    H2: 10
+    NH3: 29 
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    # - 46.67 # 1.4 Mt (5% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
+    # - 93.33 # 2.8 Mt (8% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
+    # - 125 # 3.75 Mt (5% of anticipated trade market of central scenario for 2040 of EG H2 strategy) 
+    # - 186.66 # 5.6 Mt (8%  of anticipated trade market of central scenario for 2040 of EG H2 strategy)
   store: true # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
   export_profile: "constant" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
