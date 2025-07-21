@@ -28,37 +28,30 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "DKS_EG_2050_eopts" # use this to keep track of runs with different settings
-  sector_name: "DKS_EG_2050_eopts" # use this to keep track of sector scenario runs
+  name: "DKS_MA_2030" # use this to keep track of runs with different settings
+  sector_name: "DKS_MA_2030" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
 
 scenario:
   simpl: [""]
-  ll: ["copt"]
+  ll: ["v1.1"]
   clusters: [10]
-  opts: [
-    # Co2L0.59, 
-    Co2L0.24
-    ] # Co2L0.24 TODO per country: adjust factor (e.g. Co2L0.8 for 2035) and co2base (see below) per country and planning_horizon based on excel file
+  opts: 
+    - Co2L0.78, # GECO2024, 1.5°C scenario, value for morocco and tunisia
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  # - 2035
-  - 2050
+  - 2030
+  # - 2050
   sopts:
   # - "1H"
   - "3H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
   # - "AB"
-  - "AT" #TODO: use NZ!
+  - "AT" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
-  - "H2m1.0+H2v1.0"
-  - "H2m1.0+H2v0.5"
-  - "H2m1.0+H2v0.5"
-  - "H2m1.0+NH3v1.0"
-  - "H2m1.0+NH3v1.0+FTv1.0"
-  - "H2v1.01+NH3v1.01+FTv1.01" # endogenous: true
+  - "H2v1.0+NH3v1.0+FTv1.0"
 
 augmented_line_connection:
   add_to_snakefile: false # If True, includes this rule to the workflow
@@ -66,6 +59,7 @@ augmented_line_connection:
   
 cluster_options:
   simplify_network:
+    remove_stubs: false
     remove_stubs_across_borders: true
   s_threshold_fetch_isolated: 0.05 # [-] a share of the national load for merging an isolated network into a backbone network
   alternative_clustering: true # "False" use Voronoi shapes, "True" use GADM shapes
@@ -77,17 +71,25 @@ load_options:
   scale: 1 # scales all load time-series, i.e. 2 = doubles load
 
 electricity:
-  co2base: 252.55e+6 # TODO per country: adjust using excel file and value for 2015 based on https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
+  co2base: 72.e+6 # 2019 from https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
   agg_p_nom_limits: data/agg_p_nom_minmax.csv
+  extendable_carriers:
+    Generator: [solar, onwind, offwind-ac, offwind-dc, OCGT, CCGT]
+    StorageUnit: [] # battery, H2
+    Store: [battery, H2]
+    Link: [] # H2 pipeline
+
+  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
+  custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
 lines:
   s_max_pu: 0.5
   length_factor: 1.25
 
 costs:
-  year: 2050
+  year: 2030
   version: v0.11.0
-  discountrate: [0.082] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [0.064] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
   fill_values:
     FOM: 0
@@ -97,7 +99,7 @@ costs:
     investment: 0
     lifetime: 25
     CO2 intensity: 0
-    discount rate: 0.07
+    discount rate: 0.064 # Morocco 0.085      0.064
   # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -122,15 +124,15 @@ fossil_reserves:
   oil: 0 # NB: fossil_reserves are implemented as store with e_initial, which may lead to unwanted fuel export in edge cases
 
 export:
-  endogenous: true # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
+  endogenous: false # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
   price: # market price at exit point (pre-trade) in Currency/MWh. Set to 0 for export target analysis with endogenous: false, for analysing marginal prices
-    H2: 90
-    NH3: 130
-    FT: 160 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    H2: 0
+    NH3: 0
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
-    H2: 125
-    NH3: 10
-    FT: 10 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    H2: 10
+    NH3: 29 
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
     # - 46.67 # 1.4 Mt (5% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 93.33 # 2.8 Mt (8% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 125 # 3.75 Mt (5% of anticipated trade market of central scenario for 2040 of EG H2 strategy) 
@@ -147,14 +149,14 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: true # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
+    update_data: false # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
     carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
     carriers_to_drop: ["offwind-ac", "offwind-dc"] 
     resource_classes: 3
     overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
   elec_demand: false
   heat_demand: false
-  industry_totals: true # total industry energy and feedstock demands by country
+  industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
   transport_demand: false
   water_costs: false
@@ -247,24 +249,18 @@ sector:
   # Consider share of rail transport and country-specific issues with overhead electricity lines for rail system --> larger H2 share
     AB_2030: 0.00
     AT_2030: 0.00
-    NZ_2030: 0.00
     AB_2035: 0.01
     AT_2035: 0.02
-    NZ_2035: 0.02
     AB_2050: 0.08
     AT_2050: 0.12
-    NZ_2050: 0.12
 
   land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
     AB_2030: 0.03
     AT_2030: 0.05
-    NZ_2030: 0.05
     AB_2035: 0.08
     AT_2035: 0.12
-    NZ_2035: 0.12
     AB_2050: 0.45
     AT_2050: 0.68
-    NZ_2050: 0.68
 
   co2_network: true
   co2_sequestration_potential: 100 # 200 #MtCO2/a sequestration potential for Europe 
@@ -279,13 +275,10 @@ sector:
   shipping_hydrogen_share: #1.0
     AB_2030: 0.02
     AT_2030: 0.05
-    NZ_2030: 0.05
     AB_2035: 0.05
     AT_2035: 0.10
-    NZ_2035: 0.10
     AB_2050: 0.25
     AT_2050: 0.35
-    NZ_2050: 0.35
 
   #gadm_level: 1
   h2_cavern: true
@@ -293,8 +286,8 @@ sector:
   methanation: true
   helmeth: false
   dac: true
-  SMR: false
-  SMR CC: false
+  SMR: true
+  SMR CC: true
   cc_fraction: 0.9
   cc: true
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 

@@ -116,7 +116,7 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: true
+    update_data: false
     res_techs: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
   elec_demand: false
   heat_demand: false
@@ -309,8 +309,8 @@ sector:
   methanation: true
   helmeth: false
   dac: true
-  SMR: false
-  SMR CC: false
+  SMR: true
+  SMR CC: true
   cc_fraction: 0.9
   cc: true
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating.

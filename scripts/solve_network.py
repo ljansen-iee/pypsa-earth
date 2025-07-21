@@ -1196,7 +1196,7 @@ def extra_functionality(n, snapshots):
         == "h2_hourly_matching"
     ):
         logger.info("setting general H2 electrolysis to hourly greenness constraint")
-        # This constraints all H2 electrolysis. # TODO calculate h2 content of all exports and use that.
+        # This constraints all H2 electrolysis. # TODO calculate h2 content of all exports and define factor for domestic green-h2-ratio.
         add_hourly_green_h2_constraint(n) 
         
     else:
@@ -1277,7 +1277,7 @@ if __name__ == "__main__":
             "solve_sector_network",
             simpl="",
             clusters="10",
-            ll="copt",
+            ll="v1.3",
             opts="Co2L0.24",
             planning_horizons="2050",
             discountrate="0.082",

@@ -76,7 +76,7 @@ if __name__ == "__main__":
             "override_respot",
             simpl="",
             clusters="10",
-            ll="copt",
+            ll="v1.3",
             opts="Co2L0.24",
             planning_horizons=2050,
             sopts="1h",

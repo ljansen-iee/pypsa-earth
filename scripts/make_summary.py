@@ -540,7 +540,7 @@ if __name__ == "__main__":
             "make_summary",
             simpl="",
             clusters="4",
-            ll="copt",
+            ll="v1.3",
             opts="Co2L-4H",
             country="all",
         )
