@@ -8,7 +8,7 @@ summary_dir: results/
 foresight: overnight # TODO: csp, myopic, monte carlo in szenario A zeigen
 
 
-countries: ["EG"]
+countries: ["CL"]
 # TODO per country: Insert country you want to model "EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/configuration.html#top-level-configuration
 
