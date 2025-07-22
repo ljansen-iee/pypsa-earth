@@ -45,7 +45,7 @@ scenario:
   # - 2050
   sopts:
   # - "1H"
-  - "3H"
+  - "6H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
   # - "AB"
@@ -89,7 +89,7 @@ lines:
 costs:
   year: 2030
   version: v0.11.0
-  discountrate: [0.059] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [0.070] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
   fill_values:
     FOM: 0
@@ -99,7 +99,7 @@ costs:
     investment: 0
     lifetime: 25
     CO2 intensity: 0
-    discount rate: 0.059 # nominal: 8.0, real: 5.9 
+    discount rate: 0.070 # Chile 0.092      0.070
   # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -158,7 +158,7 @@ custom_data:
   heat_demand: false
   industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
-  transport_demand: false
+  transport_demand: false # Set to true if share of ev or fcev are defined via custom energy_totals # Set to true if share of ev or fcev are defined via custom energy_totals
   water_costs: false
   h2_underground: false
   add_existing: false
