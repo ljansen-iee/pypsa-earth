@@ -7,3 +7,11 @@ snakemake solve_sector_networks --cluster-config configs/cluster_config.yaml \
 --rerun-trigger mtime 
 #--until prepare_network \
 # cp configs/DKS/config.DKS_MA_2030.yaml results/DKS_MA_2030/configs/
+
+#  configs/DKS/config.DKS_CL_2030.yaml
+#  configs/DKS/config.DKS_CL_2050.yaml
+#  configs/DKS/config.DKS_EG_2030.yaml
+#  configs/DKS/config.DKS_MA_2030.yaml
+#  configs/DKS/config.DKS_MA_2050.yaml
+#  configs/DKS/config.DKS_ZA_2030.yaml
+#  configs/DKS/config.DKS_ZA_2050.yaml

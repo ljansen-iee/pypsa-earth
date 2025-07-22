@@ -1,6 +1,9 @@
 import pandas as pd
 import pypsa
 
+DIR = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/"
+COUNTRY = ("EGY", "EG")
+
 # Convert column index to multi-level index
 # Assuming columns are in format like: "EGY.8.1_wind_class_1" or similar
 def split_column_name(col_name):
@@ -13,7 +16,7 @@ def split_column_name(col_name):
     # Extract GID_1 (should be like EGY.24_1 or EGY.8_1)
     # The GID_1 consists of the first two parts joined by underscore
     bus = f"{parts[0]}_{parts[1]}_AC"  # e.g., "EGY.24_1_AC"
-    bus = bus.replace("EGY", "EG")
+    bus = bus.replace("EGY", "EG").replace("MAR", "MA").replace("CHL", "CL").replace("ZAF", "ZA")
 
     carrier_map = {
         'wind': 'onwind',
@@ -29,42 +32,35 @@ def split_column_name(col_name):
 
 if __name__ == "__main__":
 
-    ts_EGY_2010_variant_1_path = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/DKS2-EG/timeseries/pv_wind_ts_EGY_2010_variant_1.csv"
-    ts_EGY_2010_variant_2_path = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/DKS2-EG/timeseries/pv_wind_ts_EGY_2010_variant_2.csv"
-    ts_EGY_2010_variant_4_path = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/DKS2-EG/timeseries/pv_wind_ts_EGY_2010_variant_4.csv"
-    ts_EGY_2010_variant_5_path = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/DKS2-EG/timeseries/pv_wind_ts_EGY_2010_variant_5.csv"
-
-    ts_EGY_2010 = {
-        "v1": pd.read_csv(ts_EGY_2010_variant_1_path, index_col=0),
-        "v2": pd.read_csv(ts_EGY_2010_variant_2_path, index_col=0),
-        "v4": pd.read_csv(ts_EGY_2010_variant_4_path, index_col=0),
-        "v5": pd.read_csv(ts_EGY_2010_variant_5_path, index_col=0)
+    ts_files = {
+        "CHL": f"{DIR}DKS2-CL/timeseries/gadm_pv_wind_ts_CHL_2011_variant_1_mean_weather_year.csv",
+        "EGY": f"{DIR}DKS2-EG/timeseries/gadm_pv_wind_ts_EGY_2010_variant_1_mean_weather_year.csv",
+        "MAR": f"{DIR}DKS2-MA/timeseries_per_gadm/gadm_pv_wind_ts_MAR_2016_variant_1_mean_weather_year.csv",
+        "ZAF": f"{DIR}DKS2-ZA/timeseries/gadm_pv_wind_ts_ZAF_2013_variant_1_mean_weather_year.csv"
     }
 
-    # convert columns from flat to multi-level index
-    for key, df in ts_EGY_2010.items():
+    ts = pd.read_csv(ts_files[COUNTRY[0]], index_col=0)
 
-        # Apply the parsing to all columns
-        column_tuples = [split_column_name(col) for col in df.columns]
+    # # convert columns from flat to multi-level index
+    # for key, df in ts.items():
 
-        # Create multi-level index
-        multi_index = pd.MultiIndex.from_tuples(
-            column_tuples, 
-            names=['bus', 'carrier', 'class']# Apply the multi-index to the dataframe
-        )
+    # Apply the parsing to all columns
+    column_tuples = [split_column_name(col) for col in ts.columns]
 
-        df.columns = multi_index
+    # Create multi-level index
+    multi_index = pd.MultiIndex.from_tuples(
+        column_tuples, 
+        names=['bus', 'carrier', 'class']# Apply the multi-index to the dataframe
+    )
 
-    variant = "v1"  # Change this to the desired variant
-    run_name = "DKS_EG_2050"  # Change this to the desired run name
+    ts.columns = multi_index
 
-    ts = ts_EGY_2010[variant]
-
+    run_name_prefix = f"DKS_{COUNTRY[1]}"  # Change this to the desired run name without planning year
     carriers = ["onwind", "solar"]
 
     for resource_class in ts.columns.get_level_values('class').unique():
         for car in carriers:
-            for yr in [2030, 2035, 2050]:
+            for yr in [2030, 2050]:
 
                 p_max_pu = (
                     ts
@@ -76,7 +72,7 @@ if __name__ == "__main__":
                 p_max_pu.columns = buses + " " + resource_class + " " + car
 
                 p_max_pu.to_csv(
-                    f"../data/custom/{run_name}/renewables/{resource_class} {car}-{yr}-p_max_pu.csv"
+                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{resource_class} {car}-{yr}-p_max_pu.csv"
                 )
 
             if resource_class == "1":
@@ -88,24 +84,25 @@ if __name__ == "__main__":
     # copy paste generators tables for now.
     # attributes could be modified here later, it costs should be modified via costs.csv files
 
-    max_expansion_limits_EGY = {
-        "v1": pd.read_csv(
-            "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/DKS2-EG/pot_areas/max_expansion_limits_EGY_var_1.csv",
-            index_col=0,)
+    max_expansion_limits_files = {
+        "EGY": f"{DIR}DKS2-EG/timeseries/gadm_max_expansion_limits_EGY_var_1_mean_weather_year.csv",
+        "CHL": f"{DIR}DKS2-CL/timeseries/gadm_max_expansion_limits_CHL_var_1_mean_weather_year.csv",
+        "MAR": f"{DIR}DKS2-MA/timeseries_per_gadm/gadm_max_expansion_limits_MAR_var_1_mean_weather_year.csv",
+        "ZAF": f"{DIR}DKS2-ZA/timeseries/gadm_max_expansion_limits_ZAF_var_1_mean_weather_year.csv"
     }
 
-    max_expansion_limits_EGY[variant] = max_expansion_limits_EGY[variant]
-    max_expansion_limits_EGY[variant]["GID_1"] = (
-        max_expansion_limits_EGY[variant]["GID_1"]
+    max_expansion_limits = pd.read_csv(max_expansion_limits_files[COUNTRY[0]], index_col=0)
+    max_expansion_limits["gid_1"] = (
+        max_expansion_limits["gid_1"]
         .str.replace("EGY", "EG")
         .str.replace("MAR", "MA")
         .str.replace("CHL", "CL")
         .str.replace("ZAF", "ZA")
     )
-    max_expansion_limits_EGY[variant].columns = [
+    max_expansion_limits.columns = [
         "node", "resource_class", "onwind", "solar"
     ]
-    max_expansion_limits_EGY[variant]["resource_class"] = max_expansion_limits_EGY[variant]["resource_class"].astype(str)
+    max_expansion_limits["resource_class"] = max_expansion_limits["resource_class"].astype(str)
 
    
     relevant_attrs = [
@@ -117,11 +114,11 @@ if __name__ == "__main__":
 
     for resource_class in ts.columns.get_level_values('class').unique():        
         for car in carriers:
-            max_exp_limits = max_expansion_limits_EGY[variant].copy()
+            max_exp_limits = max_expansion_limits.copy()
             max_exp_limits = max_exp_limits.query("resource_class == @resource_class")
             max_exp_limits.index = max_exp_limits["node"] + "_AC" + " " + max_exp_limits["resource_class"] + " " + car
             for yr in [2030, 2050]: # use different network for other years because of different costs
-                n = pypsa.Network(f"EG_elec_{yr}/elec_s_10.nc")
+                n = pypsa.Network(f"../networks/{run_name_prefix}_{yr}/elec_s_10.nc")
 
                 buses = n.buses[n.buses.carrier == "AC"].index
 
@@ -130,7 +127,7 @@ if __name__ == "__main__":
                     .query("carrier == @car and bus in @buses"))
 
                 gens.to_csv(
-                    f"../data/custom/{run_name}/renewables/{car}-{yr}.csv", # as reference
+                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{car}-{yr}.csv", # as reference
                 )
 
                 gens.index = buses + " " + resource_class + " " + car
@@ -151,5 +148,5 @@ if __name__ == "__main__":
                     gens["p_nom_min"] = 0. 
 
                 gens.to_csv(
-                    f"../data/custom/{run_name}/renewables/{resource_class} {car}-{yr}.csv",
+                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{resource_class} {car}-{yr}.csv",
                 )

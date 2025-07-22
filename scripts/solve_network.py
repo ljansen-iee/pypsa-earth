@@ -121,7 +121,7 @@ def prepare_network(n, solve_opts, config):
             carrier="load shedding",
             sign=1,
             marginal_cost=solve_opts.get("load_shedding") * 1000,  # convert to Eur/MWh
-            p_nom=1e6,
+            p_nom=0.5e6,
         )
 
     if solve_opts.get("noisy_costs"):
