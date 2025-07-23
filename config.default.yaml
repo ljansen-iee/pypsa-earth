@@ -497,7 +497,7 @@ custom_data:
   heat_demand: false
   industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
-  transport_demand: false
+  transport_demand: false # Set to true if share of ev or fcev are defined via custom energy_totals
   water_costs: false
   h2_underground: false
   add_existing: false

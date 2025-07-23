@@ -51,9 +51,10 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "prepare_energy_totals",
             simpl="",
-            clusters="4",
+            clusters="10",
             demand="AB",
             planning_horizons=2030,
+            configfile="configs/DKS/config.DKS_MA_2030.yaml",
         )
 
     countries = snakemake.params.countries
