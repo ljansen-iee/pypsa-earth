@@ -52,13 +52,13 @@ EXTERNAL_DATABASE:
 
 WEPP:
   net_capacity: false
-  reliability_score: 4
-  fn: mnt/data/gsa/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
+  reliability_score: 3
+  fn: /mnt/data/gsa/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
   #C:/Users/ljansen/projects/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
   #/mnt/data/gsa/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
 
 parallel_duke_processes: false
-process_limit: 2
+process_limit: 4
 remove_missing_coords: true
 
 matched_data_url:

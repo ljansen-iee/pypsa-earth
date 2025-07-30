@@ -14,7 +14,7 @@ google_api_key:
 
 #matching config
 matching_sources:
-  # - CARMA  # deprecated as no more public
+# - CARMA  # deprecated as no more public
 - GEO
 - GPD
 - GBPT
@@ -26,12 +26,11 @@ matching_sources:
 - GWPT
 - GHPT
 - WEPP
-#- EXTERNAL_DATABASE
 # - GEM_GGPT  # to be enabled once GEM_GGPT is working
-
+# - EXTERNAL_DATABASE
 
 fully_included_sources:
-  # - CARMA  # deprecated as no more public
+# - CARMA  # deprecated as no more public
 - GEO
 - GPD
 - GBPT
@@ -43,8 +42,8 @@ fully_included_sources:
 - GWPT
 - GHPT
 - WEPP
-#- EXTERNAL_DATABASE
 # - GEM_GGPT  # to be enabled once GEM_GGPT is working
+# - EXTERNAL_DATABASE
 
 EXTERNAL_DATABASE:
   reliability_score: 5
