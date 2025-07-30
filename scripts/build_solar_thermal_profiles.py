@@ -21,7 +21,8 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "build_solar_thermal_profiles",
             simpl="",
-            clusters="4",
+            clusters="10",
+            planning_horizons=2030,
         )
 
     config = snakemake.params.solar_thermal_config
