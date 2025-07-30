@@ -22,12 +22,19 @@ chdir_to_parent_dir()
 
 run_name_prefix = "DKS" # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary"
+sdir = Path.cwd() / "results"/ f"{run_name_prefix}v1_summary"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
-    "DKS_EG_2050_eopts",
-]
+    # "DKS_CL_2030",
+    # "DKS_CL_2050",
+    "DKS_EG_2030",
+    # "DKS_EG_2050",
+    # "DKS_MA_2030",
+    # "DKS_MA_2050",
+    # "DKS_ZA_2030",
+    # "DKS_ZA_2050",
+]   
 
 #%%
 
@@ -54,7 +61,7 @@ all_wildcards = {
 all_configs = {
     run_name:
         yaml.safe_load(
-            Path(f"configs/scenarios_iee/config.{run_name}.yaml").read_text()) # TODO: config file names should be equal to the run name
+            Path(f"configs/DKS/config.{run_name}.yaml").read_text()) # TODO: config file names should be equal to the run name
         for run_name in all_run_names
 }
 
@@ -225,7 +232,9 @@ for nc_files_idx in nc_files.index:
                 value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
                 load_avg_marginal_price.at[nc_files_idx, bus] = value
             else:
-                print("No exogenous or endogenous load found for ", bus_carrier, " export bus")
+                print("No exogenous or endogenous load found for ", 
+                      bus_carrier, 
+                      " export bus in ", nc_files_idx)
 
 
 # %%

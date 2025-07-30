@@ -110,26 +110,133 @@ def drop_index_levels(df, to_drop=[]):
 
 
 
-from typing import Callable, Any, Hashable
+from typing import Callable, Any, Hashable, List, Optional, Union
 import pandas as pd
+import numpy as np
 
 def prepare_dataframe(
     stats_df: pd.DataFrame,
     idx_group: Any,
     set_scen_col_name: Callable[[pd.DataFrame], pd.DataFrame],
-    round: int = 1,
-    drop_zero: bool = True
+    id_vars: Optional[List[str]] = None,
+    groupby_vars: Optional[List[str]] = None,
+    round_decimals: int = 1,
+    drop_zero: bool = True,
+    zero_threshold: float = 1e-10,
+    rename_function: Optional[Callable[[str], str]] = None
 ) -> pd.DataFrame:
-    df = stats_df.copy().loc[idx_group].reset_index()
-    df = set_scen_col_name(df)
-    df = df.melt(id_vars=["run_name_prefix", "run_name", "scen", "year", "country"]).groupby(
-        ["run_name_prefix", "run_name", "scen", "year", "country", "variable"], as_index=False
-    ).sum().round(round)
+    """
+    Prepare and transform a statistics DataFrame for plotting.
+    
+    Parameters
+    ----------
+    stats_df : pd.DataFrame
+        Input statistics DataFrame
+    idx_group : Any
+        Index group selector for filtering the DataFrame
+    set_scen_col_name : Callable[[pd.DataFrame], pd.DataFrame]
+        Function to set scenario column names
+    id_vars : List[str], optional
+        List of identifier variables for melting. If None, uses default.
+    groupby_vars : List[str], optional
+        List of variables for grouping. If None, uses id_vars + ["variable"].
+    round_decimals : int, default 1
+        Number of decimal places to round to
+    drop_zero : bool, default True
+        Whether to drop rows with zero values
+    zero_threshold : float, default 1e-10
+        Threshold below which values are considered zero
+    rename_function : Callable[[str], str], optional
+        Function to rename variable names before grouping. If provided, 
+        will be applied to the 'variable' column after melting.
+        
+    Returns
+    -------
+    pd.DataFrame
+        Processed DataFrame ready for plotting
+        
+    Raises
+    ------
+    ValueError
+        If required columns are missing or if DataFrame is empty
+    KeyError
+        If idx_group is not found in DataFrame index
+    """
+    # Input validation
+    if stats_df.empty:
+        raise ValueError("Input DataFrame is empty")
+    
+    # Set default id_vars if not provided
+    if id_vars is None:
+        id_vars = ["run_name_prefix", "run_name", "scen", "year", "country"]
+    
+    # Validate id_vars exist in DataFrame columns after reset_index
+    try:
+        df = stats_df.copy().loc[idx_group].reset_index()
+    except (KeyError, IndexError) as e:
+        raise KeyError(f"Index group {idx_group} not found in DataFrame: {e}")
+    
+    if df.empty:
+        raise ValueError(f"No data found for index group: {idx_group}")
+    
+    # Apply scenario column naming function
+    try:
+        df = set_scen_col_name(df)
+    except Exception as e:
+        raise ValueError(f"Error applying set_scen_col_name function: {e}")
+    
+    # Check if id_vars exist in the DataFrame
+    missing_id_vars = set(id_vars) - set(df.columns)
+    if missing_id_vars:
+        raise ValueError(f"Missing required id_vars in DataFrame: {missing_id_vars}")
 
-    if drop_zero:
-        df = df[df["value"] != 0]
-
-    return df
+    # Determine value columns (columns that are not id_vars)
+    value_vars = [col for col in df.columns if col not in id_vars]
+    
+    if not value_vars:
+        raise ValueError("No value columns found for melting after excluding id_vars")
+    
+    # Melt the DataFrame
+    try:
+        df_melted = df.melt(id_vars=id_vars, value_vars=value_vars)
+    except Exception as e:
+        raise ValueError(f"Error during DataFrame melting: {e}")
+    
+    # Apply rename function to variable column if provided
+    if rename_function is not None:
+        try:
+            df_melted['variable'] = df_melted['variable'].map(rename_function)
+        except Exception as e:
+            raise ValueError(f"Error applying rename_function: {e}")
+    
+    # Set default groupby_vars if not provided
+    if groupby_vars is None:
+        groupby_vars = id_vars + ["variable"]
+    
+    # Validate groupby_vars exist in melted DataFrame
+    missing_groupby_vars = set(groupby_vars) - set(df_melted.columns)
+    if missing_groupby_vars:
+        raise ValueError(f"Missing required groupby_vars in melted DataFrame: {missing_groupby_vars}")
+    
+    # Group by and sum
+    try:
+        df_grouped = df_melted.groupby(groupby_vars, as_index=False).sum(numeric_only=True)
+    except Exception as e:
+        raise ValueError(f"Error during groupby operation: {e}")
+    
+    # Round values
+    if 'value' in df_grouped.columns:
+        df_grouped['value'] = df_grouped['value'].round(round_decimals)
+    else:
+        # Round all numeric columns
+        numeric_cols = df_grouped.select_dtypes(include=[np.number]).columns
+        df_grouped[numeric_cols] = df_grouped[numeric_cols].round(round_decimals)
+    
+    # Drop zero values if requested
+    if drop_zero and 'value' in df_grouped.columns:
+        df_grouped = df_grouped[abs(df_grouped["value"]) > zero_threshold]
+    
+    return df_grouped
 
 def update_layout(fig):
     fig.update_traces(textposition='inside', textangle=0)

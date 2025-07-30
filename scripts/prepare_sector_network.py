@@ -1831,13 +1831,13 @@ def add_land_transport(n, costs):
             snakemake.wildcards.opts
         ]
 
-    elif snakemake.config["custom_data"]["transport_demand"]:
-        fuel_cell_share = round(energy_totals.at["ZA","total road fcev"] /
-        energy_totals.at["ZA","total road"], 4
+    if snakemake.config["custom_data"]["transport_demand"]:
+        fuel_cell_share = round(energy_totals.loc[countries,"total road fcev"].sum() /
+        energy_totals.loc[countries,"total road"].sum(), 4
         )
-        
-        electric_share  = round(energy_totals.at["ZA","total road ev"] /
-            energy_totals.at["ZA","total road"], 4
+
+        electric_share  = round(energy_totals.loc[countries,"total road ev"].sum() /
+            energy_totals.loc[countries,"total road"].sum(), 4
         )
 
     ice_share = 1 - fuel_cell_share - electric_share
@@ -1943,15 +1943,18 @@ def add_land_transport(n, costs):
             snakemake.params.h2_policy["is_reference"]
             and snakemake.params.h2_policy["remove_h2_load"]
         ):
+            fcev_efficiency = (
+                options["transport_fuel_cell_efficiency"]
+                if not snakemake.config["custom_data"]["transport_demand"]
+                else 1
+            )
             n.madd(
                 "Load",
                 nodes,
                 suffix=" land transport fuel cell",
                 bus=nodes + " H2",
                 carrier="land transport fuel cell",
-                p_set=fuel_cell_share
-                / options["transport_fuel_cell_efficiency"]
-                * transport[nodes],
+                p_set=fuel_cell_share / fcev_efficiency * transport[spatial.nodes],
             )
 
     if ice_share > 0:
@@ -1959,7 +1962,11 @@ def add_land_transport(n, costs):
             n.madd(
                 "Bus", spatial.oil.nodes, location=spatial.oil.locations, carrier="oil"
             )
-        ice_efficiency = options["transport_internal_combustion_efficiency"]
+        ice_efficiency = (
+            options["transport_internal_combustion_efficiency"]
+            if not snakemake.config["custom_data"]["transport_demand"]
+            else 1
+        )
 
         n.madd(
             "Load",
@@ -2983,12 +2990,12 @@ if __name__ == "__main__":
             "prepare_sector_network",
             simpl="",
             clusters="10",
-            ll="v1.3",
-            opts="Co2L0.24",
-            planning_horizons="2050",
-            sopts="3H",
-            discountrate=0.082,
-            demand="NZ",
+            ll="v1.1",
+            opts="Co2L0.90",
+            planning_horizons="2030",
+            sopts="144H",
+            discountrate=0.106,
+            demand="RF",
         )
     
     # Load population layout

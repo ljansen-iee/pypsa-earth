@@ -41,17 +41,16 @@ scenario:
   opts: 
   # - Co2L0.24, # CAT
   # - Co2L0.12 
-  - Co2L0.03 # GECO2024 1.5°C (7.03 MtCO2)
+  - Co2L0.18 # GECO2024 1.5°C (7.03 MtCO2)
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2050
   sopts:
-  # - "1H"
   # - "6H"
   - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  # - "RF"
-  - "EL" 
+  - "RF"
+  # - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "H2v1.0+NH3v1.0+FTv1.0"
   - "H2v0.5+NH3v0.5+FTv0.5"

@@ -44,12 +44,11 @@ scenario:
   - 2030
   # - 2050
   sopts:
-  # - "1H"
-  - "6H"
+  # - "6H"
   - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  - "RF"
+  # - "RF"
   - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "NH3v1.0+FTv1.0"
@@ -289,8 +288,8 @@ sector:
   methanation: true
   helmeth: false
   dac: true
-  SMR: false
-  SMR CC: false
+  SMR: true
+  SMR CC: true
   cc_fraction: 0.9
   cc: true
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 
