@@ -2,7 +2,7 @@ import pandas as pd
 import pypsa
 
 DIR = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/"
-COUNTRY = ("EGY", "EG")
+COUNTRY = ("CHL", "CL")
 
 # Convert column index to multi-level index
 # Assuming columns are in format like: "EGY.8.1_wind_class_1" or similar
@@ -33,7 +33,7 @@ def split_column_name(col_name):
 if __name__ == "__main__":
 
     ts_files = {
-        "CHL": f"{DIR}DKS2-CL/timeseries/gadm_pv_wind_ts_CHL_2011_variant_1_mean_weather_year.csv",
+        "CHL": f"{DIR}DKS2-CL/150km_griddist/gadm_pv_wind_ts_CHL_2014_variant_1_mean_weather_year_150km_griddist.csv",
         "EGY": f"{DIR}DKS2-EG/timeseries/gadm_pv_wind_ts_EGY_2010_variant_1_mean_weather_year.csv",
         "MAR": f"{DIR}DKS2-MA/timeseries_per_gadm/gadm_pv_wind_ts_MAR_2016_variant_1_mean_weather_year.csv",
         "ZAF": f"{DIR}DKS2-ZA/timeseries/gadm_pv_wind_ts_ZAF_2013_variant_1_mean_weather_year.csv"
@@ -85,8 +85,8 @@ if __name__ == "__main__":
     # attributes could be modified here later, it costs should be modified via costs.csv files
 
     max_expansion_limits_files = {
+        "CHL": f"{DIR}DKS2-CL/150km_griddist/gadm_max_expansion_limits_CHL_var_1_mean_weather_year_150km_griddist.csv",
         "EGY": f"{DIR}DKS2-EG/timeseries/gadm_max_expansion_limits_EGY_var_1_mean_weather_year.csv",
-        "CHL": f"{DIR}DKS2-CL/timeseries/gadm_max_expansion_limits_CHL_var_1_mean_weather_year.csv",
         "MAR": f"{DIR}DKS2-MA/timeseries_per_gadm/gadm_max_expansion_limits_MAR_var_1_mean_weather_year.csv",
         "ZAF": f"{DIR}DKS2-ZA/timeseries/gadm_max_expansion_limits_ZAF_var_1_mean_weather_year.csv"
     }

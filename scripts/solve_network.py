@@ -1219,9 +1219,11 @@ def extra_functionality(n, snapshots):
         add_linkp_gt_export_constraint(n, "H2 Electrolysis", "H2 export")
     if n.links.carrier.str.contains("NH3 export").any():
         logger.info("adding Haber-Bosch >= NH3 export link constraint")
+        add_linkp_gt_export_constraint(n, "H2 Electrolysis", "Haber-Bosch")
         add_linkp_gt_export_constraint(n, "Haber-Bosch", "NH3 export")
     if n.links.carrier.str.contains("FT export").any():
         logger.info("adding Fischer-Tropsch >= FT export link constraint")
+        add_linkp_gt_export_constraint(n, "H2 Electrolysis", "Fischer-Tropsch")
         add_linkp_gt_export_constraint(n, "Fischer-Tropsch", "FT export")
 
     add_co2_sequestration_limit(n, snapshots)
@@ -1281,7 +1283,7 @@ if __name__ == "__main__":
             opts="Co2L0.24",
             planning_horizons="2050",
             discountrate="0.082",
-            demand="AT",
+            demand="EL",
             sopts="144H",
             eopts="H2v1.01+NH3v1.01+FTv1.01",
             # configfile="config.tutorial.yaml",

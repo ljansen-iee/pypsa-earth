@@ -56,8 +56,8 @@ if __name__ == "__main__":
             "build_industry_demand",
             simpl="",
             clusters="10",
-            planning_horizons=2050,
-            demand="NZ",
+            planning_horizons=2030,
+            demand="EL",
         )
 
     countries = snakemake.params.countries

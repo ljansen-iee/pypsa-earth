@@ -52,9 +52,9 @@ if __name__ == "__main__":
             "prepare_energy_totals",
             simpl="",
             clusters="10",
-            demand="AB",
-            planning_horizons=2030,
-            configfile="configs/DKS/config.DKS_MA_2030.yaml",
+            demand="RF",
+            planning_horizons=2050,
+            configfile="configs/DKS/config.DKS_ZA_2050.yaml",
         )
 
     countries = snakemake.params.countries

@@ -590,7 +590,7 @@ if __name__ == "__main__":
             planning_horizons="2030",
             sopts="144H",
             discountrate=0.071,
-            demand="AB",
+            demand="RF",
             h2export="120",
         )
 

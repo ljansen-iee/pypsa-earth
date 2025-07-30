@@ -1831,6 +1831,15 @@ def add_land_transport(n, costs):
             snakemake.wildcards.opts
         ]
 
+    elif snakemake.config["custom_data"]["transport_demand"]:
+        fuel_cell_share = round(energy_totals.at["ZA","total road fcev"] /
+        energy_totals.at["ZA","total road"], 4
+        )
+        
+        electric_share  = round(energy_totals.at["ZA","total road ev"] /
+            energy_totals.at["ZA","total road"], 4
+        )
+
     ice_share = 1 - fuel_cell_share - electric_share
 
     logger.info("FCEV share: {}".format(fuel_cell_share))

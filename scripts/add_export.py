@@ -423,7 +423,7 @@ if __name__ == "__main__":
             planning_horizons="2050",
             sopts="144H",
             discountrate="0.082",
-            demand="AT",
+            demand="EL",
             eopts="H2v1.01+NH3v1.01+FTv1.01", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
             # configfile="test/config.test1.yaml",
         )

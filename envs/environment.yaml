@@ -17,7 +17,8 @@ dependencies:
 - dask
 # currently the packages are being installed with pip
 # need to move back to conda once the issues will be resolved
-- powerplantmatching>=0.5.19
+
+# - powerplantmatching>=0.5.19
 - earth-osm>=2.3.post1
 - atlite>=0.3
 
@@ -92,3 +93,4 @@ dependencies:
   - git+https://github.com/davide-f/google-drive-downloader@master  # google drive with fix for virus scan
   - chaospy  # lastest version only available on pip
   - fake_useragent
+  - git+https://github.com/ljansen-iee/powerplantmatching.git

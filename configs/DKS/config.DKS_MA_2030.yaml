@@ -46,10 +46,11 @@ scenario:
   sopts:
   # - "1H"
   - "6H"
+  - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  # - "AB"
-  - "AT" 
+  - "RF"
+  - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "H2v1.0+NH3v1.0+FTv1.0"
 
@@ -89,7 +90,7 @@ lines:
 costs:
   year: 2030
   version: v0.11.0
-  discountrate: [0.077] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [0.078] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
   fill_values:
     FOM: 0
@@ -99,7 +100,7 @@ costs:
     investment: 0
     lifetime: 25
     CO2 intensity: 0
-    discount rate: 0.077 # Morocco 0.098      0.077
+    discount rate: 0.078 # Morocco 0.100      0.078
   # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -130,9 +131,9 @@ export:
     NH3: 0
     FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
-    H2: 10
-    NH3: 29 
-    FT: 0.5 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    H2: 1
+    NH3: 6.6 
+    FT: 0.7 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
     # - 46.67 # 1.4 Mt (5% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 93.33 # 2.8 Mt (8% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 125 # 3.75 Mt (5% of anticipated trade market of central scenario for 2040 of EG H2 strategy) 
@@ -149,22 +150,22 @@ export:
 
 custom_data:
   renewables: # ['csp', 'rooftop-solar', 'solar']
-    update_data: false # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
+    update_data: true # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
     carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
     carriers_to_drop: ["offwind-ac", "offwind-dc"] 
     resource_classes: 3
     overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
   elec_demand: false
   heat_demand: false
-  industry_totals: false # total industry energy and feedstock demands by country
+  industry_totals: true # total industry energy and feedstock demands by country
   industry_database: false
-  transport_demand: false # Set to true if share of ev or fcev are defined via custom energy_totals
+  transport_demand: true # Set to true if share of ev or fcev are defined via custom energy_totals
   water_costs: false
   h2_underground: false
   add_existing: false
   custom_sectors: false
   custom_demands: # TODO: ESTEFANIA ADD THE WORKFLOW FOR DEMAND DATA TOO
-    update_data: false # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
+    update_data: true # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
     # altdemands: "MA_iee_GlobalNZ" #"MA_NH2Strategy","MA_iee_baseline" if "True" then custom .csv file must be placed in "data/custom/xxxx.csv" , If "False" the workflow works with default data.
   gas_network: false # If "True" then a custom .csv file must be placed in "resources/custom_data/pipelines.csv" , If "False" the user can choose btw "greenfield" or Model built-in datasets. Please refer to ["sector"] below.
   export_ports: false # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
@@ -247,20 +248,20 @@ sector:
   # TODO per country: Double check for next iterations
   # land transport includes road and rail. 
   # Consider share of rail transport and country-specific issues with overhead electricity lines for rail system --> larger H2 share
-    AB_2030: 0.00
-    AT_2030: 0.00
-    AB_2035: 0.01
-    AT_2035: 0.02
-    AB_2050: 0.08
-    AT_2050: 0.12
+    RF_2030: 0.00
+    EL_2030: 0.00
+    RF_2035: 0.01
+    EL_2035: 0.02
+    RF_2050: 0.08
+    EL_2050: 0.12
 
   land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
-    AB_2030: 0.03
-    AT_2030: 0.05
-    AB_2035: 0.08
-    AT_2035: 0.12
-    AB_2050: 0.45
-    AT_2050: 0.68
+    RF_2030: 0.03
+    EL_2030: 0.05
+    RF_2035: 0.08
+    EL_2035: 0.12
+    RF_2050: 0.45
+    EL_2050: 0.68
 
   co2_network: true
   co2_sequestration_potential: 100 # 200 #MtCO2/a sequestration potential for Europe 
@@ -273,12 +274,12 @@ sector:
   # Share of hydrogen or hydrogen-equivalents of ammonia shipping. Might depend on country and routes.
   # Fischer-tropsch based shipping e-fuel share is result of optimisation and co2limit. Co2L must consider international shipping emissions. --> to be discussed.
   shipping_hydrogen_share: #1.0
-    AB_2030: 0.02
-    AT_2030: 0.05
-    AB_2035: 0.05
-    AT_2035: 0.10
-    AB_2050: 0.25
-    AT_2050: 0.35
+    RF_2030: 0.02
+    EL_2030: 0.05
+    RF_2035: 0.05
+    EL_2035: 0.10
+    RF_2050: 0.25
+    EL_2050: 0.35
 
   #gadm_level: 1
   h2_cavern: true

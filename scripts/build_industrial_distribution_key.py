@@ -100,7 +100,7 @@ if __name__ == "__main__":
             "build_industrial_distribution_key",
             clusters="4",
             planning_horizons=2050,
-            demand="AB",
+            demand="RF",
         )
 
     regions = gpd.read_file(snakemake.input.regions_onshore)
