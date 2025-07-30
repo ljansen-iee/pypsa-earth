@@ -28,6 +28,9 @@ from prepare_sector_network import remove_carrier_related_components
 from add_electricity import load_costs
 
 
+def remove_leap_day(df):
+    return df[~((df.index.month == 2) & (df.index.day == 29))]
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
@@ -99,6 +102,9 @@ if __name__ == "__main__":
                         parse_dates=True,
                     )
                 )
+
+                p_max_pu = remove_leap_day(p_max_pu)
+
                 p_max_pu.index = n.generators_t.p_max_pu.index
                 missing_indices = pd.Index(gens.index).difference(p_max_pu.columns)
                 if not missing_indices.empty:
