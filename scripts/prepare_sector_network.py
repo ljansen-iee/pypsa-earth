@@ -3079,10 +3079,10 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="copt",
-            opts="Co2L-3H",
-            planning_horizons="2030",
-            sopts="144H",
-            discountrate=0.071,
+            opts="Co2L0.6",
+            planning_horizons="2035",
+            sopts="3H",
+            discountrate=0.082,
             demand="AB",
         )
 
@@ -3225,8 +3225,8 @@ if __name__ == "__main__":
 
     add_generation(n, costs, existing_capacities, existing_efficiencies, existing_nodes)
 
-    # remove H2 and battery technologies added in elec-only model
-    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery"])
+    # remove H2, battery and biomass technologies added in elec-only model
+    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery", "biomass"])
 
     add_hydrogen(n, costs)  # TODO add costs
 
@@ -3236,7 +3236,7 @@ if __name__ == "__main__":
 
     h2_hc_conversions(n, costs)
     add_heat(n, costs)
-    add_biomass(n, costs)
+    add_biomass(n, costs) # TODO add existing biomass capacities
 
     add_industry(n, costs)
 

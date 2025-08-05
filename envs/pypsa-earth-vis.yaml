@@ -1,0 +1,12 @@
+name: pypsa-earth-vis
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - pypsa>=0.34
+  - snakemake-minimal<8
+  - jupyterlab
+  - plotly
+  
+  - pip:
+    - kaleido==0.1.0post1 # for image export with plotly
