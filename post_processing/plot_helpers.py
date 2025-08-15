@@ -241,6 +241,18 @@ def prepare_dataframe(
 def update_layout(fig):
     fig.update_traces(textposition='inside', textangle=0)
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    # fig.update_yaxes(matches=None)
+    # # Add ticks and show y-axis scale (numbers) for all y-axes in subplot
+    # fig.update_yaxes(
+    #     # ticks="outside",
+    #     # ticklen=5,
+    #     # tickwidth=1,
+    #     # tickcolor='black',
+    #     # showline=True,
+    #     # linewidth=1,
+    #     # linecolor='black',
+    #     showticklabels=True  # Ensure y-axis numbers are shown
+    # )
     return
 
 
@@ -347,10 +359,10 @@ def rename_techs_study(tech):
         return "H2 pipeline"
     # elif tech == "H2":
     #     return "H2 storage"
-    elif tech in ["OCGT", "CCGT","OCGT (Diesel)","sasol_gas","ocgt_diesel"]:
+    elif tech in ["OCGT", "CCGT","OCGT (Diesel)","sasol_gas","ocgt_diesel", "CHP"]:
         return "Gas turbines"
     elif tech == 'Combined-Cycle Gas':
-        return "CHP"
+        return "Gas turbines" #"CHP"
     elif "V2G" in tech:
         return "Vehicle-to-Grid"
     elif tech == "battery":
@@ -360,9 +372,9 @@ def rename_techs_study(tech):
     elif "Hydro" in tech or "hydro" in tech:
         return "Hydro"
     elif "Haber-Bosch" in tech:
-       return "ammonia synthesis"
+       return "Power-to-NH3"
     elif tech in ["Fischer-Tropsch", "methanolisation"]:
-        return "liquid fuel synthesis"
+        return "Power-to-liquid"
     elif "offshore wind" in tech:
         return "offshore wind"
     elif "SMR" in tech:
@@ -388,7 +400,7 @@ def rename_techs_study(tech):
     elif tech == "Load_Shedding":
         return "Backup/load-shedding"
     elif tech == "helmeth":
-        return "Power-to-gas"
+        return "Power-to-CH4"
     elif tech == "H2 Fuel Cell":
         return "H2-to-power"
     else:
@@ -426,12 +438,12 @@ def rename_costs(tech):
     elif tech in ["Fischer-Tropsch export"]:
         return "PtL export"    
     elif tech in ["Haber-Bosch"]:
-        return "Ammonia synthesis"
+        return "Power-to-NH3"
     elif tech in ["NH3 export"]:
         return "Ammonia export"
-    elif tech in ["Power-to-gas"]:
-        return "Power-to-gas"
-    elif tech in ["liquid fuel synthesis"]:
+    elif tech in ["Power-to-CH4"]:
+        return "Power-to-CH4"
+    elif tech in ["Power-to-liquid"]:
         return "Power-to-liquid"
     elif tech in ["power-to-heat"]:
         return "Power-to-heat"
@@ -452,7 +464,7 @@ def rename_oil(tech):
     if "rail transport" in tech:
         return "Rail transport"
     elif "shipping" in tech:
-        return "Maritime"
+        return "Navigation"
     elif "industry" in tech:
         return "Industry"
     elif "land transport" in tech:
@@ -479,13 +491,13 @@ def rename_gas(tech):
     if tech in ["gas"]:
         return "Gas import"
     elif "methanation" in tech:
-        return "Power-to-gas"
+        return "Power-to-CH4"
     elif "residential" in tech:
          return "Residential"
     elif "services" in tech:
         return "Commerce"
     elif tech in ["Sabatier"]:
-        return "Power-to-gas"
+        return "Power-to-CH4"
     elif tech in ["OCGT", "CCGT"]:
         return "Gas turbines"
     elif tech == "gas for industry CC":
@@ -504,13 +516,13 @@ def rename_h2(tech):
     if tech == 'Fischer-Tropsch':
         return "Power-to-liquid"
     elif "Haber-Bosch" in tech:
-       return "Ammonia synthesis"
+       return "Power-to-NH3"
     # elif tech == 'H2 export':
-    #     return "ammonia synthesis"
+    #     return "Power-to-NH3"
     elif tech == 'Sabatier':
-        return "Power-to-gas"
+        return "Power-to-CH4"
     elif "shipping" in tech:
-        return "Shipping"
+        return "Navigation"
     elif "industry" in tech:
         return "Industry"
     elif "land transport" in tech:
@@ -555,9 +567,9 @@ def rename_co2(tech):
     elif tech == 'DAC':
         return "Direct air capture"
     elif tech == 'Sabatier':
-        return "Power-to-gas"    
+        return "Power-to-CH4"    
     elif tech == 'helmeth':
-        return "Power-to-gas"
+        return "Power-to-CH4"
     else:
         return tech
 
@@ -590,7 +602,8 @@ my_template = go.layout.Template(
         font_size=14,
         uniformtext_minsize=11, 
         uniformtext_mode='hide',
-        margin=dict(l=15, r=0, t=80, b=0),
+        margin=dict(l=100, r=100, t=80, b=50),
+        # margin=dict(l=15, r=0, t=80, b=0),
 ))
 
 pio.renderers.default = 'plotly_mimetype+notebook_connected'
@@ -622,7 +635,7 @@ colors = {
         "Nuclear": "#bb0056",
         "Gas turbines": '#d3c7ae',
         "CHP": "#d6a67c",
-        'Ammonia synthesis': '#fce356',
+        'Power-to-NH3': '#fce356',
         "Agriculture": '#f08591',
         "Rail transport": '#008598',
         "Desalination": "#39c1cd",
@@ -635,39 +648,42 @@ colors = {
         "Biomass": "#b2d235",
         "Other": "#a6bbc8",
         "Power-to-heat": "#FCD80E",
-        "Power-to-gas": "#d3c7ae",
+        "Power-to-CH4": "#d3c7ae",
         'H2 Electrolysis': "#179c7d",
         "H2-to-power": "#179c7d",
-        "Liquid fuel synthesis": "#bb0056",
+        "Power-to-liquid": "#bb0056",
         "Power-to-liquid": "#bb0056",
         "Oil": "#1c3f52",
+        "Geothermal": '#f08591',
     },
     "hydrogen": {
         'H2 Electrolysis': "#179c7d",
         'Industry': '#a6bbc8',
         'Land transport': '#669db2',
-        'Ammonia synthesis': '#fce356',
-        'Power-to-gas': '#d3c7ae',
+        'Power-to-NH3': '#fce356',
+        'Power-to-CH4': '#d3c7ae',
         'Power-to-liquid': '#bb0056',
         "H2 export": "#4CC2A6",
+        "Navigation": "#39c1cd",
+        "Navigation": "#39c1cd",
     },
     "oil": {
         "Fuel import or CtL": "#1c3f52",
         "Fossil fuel import": "#1c3f52",
         'Power-to-liquid': '#bb0056',
         'Land transport': '#669db2',
-        "Maritime": "#39c1cd",
+        "Navigation": "#39c1cd",
         "Aviation": "#fce356",
         "Industry": '#f58220',
         "Commerce": "#b2d235",
         "Residential": "#d3c7ae",
         "Agriculture": '#f08591',
         "Rail transport": '#008598',
-        'Power-to-gas': '#d3c7ae',
+        'Power-to-CH4': '#d3c7ae',
         "Power-to-liquid export": "#7c154d",
     },
     "gas": {
-        'Power-to-gas': '#d3c7ae',
+        'Power-to-CH4': '#d3c7ae',
         "Commerce": "#b2d235",
         'Gas import': "#fce356",
         'Gas turbines': '#d3c7ae',
@@ -684,7 +700,7 @@ colors = {
         'Gas for industry with CC': '#005b7f',
         'Direct air capture': '#7c154d',
         'Power-to-liquid': '#bb0056',
-        "Power-to-gas": '#d3c7ae',
+        "Power-to-CH4": '#d3c7ae',
     },
     "costs": {
         "Ammonia export": '#bb0056',
@@ -693,7 +709,7 @@ colors = {
         "Wind": '#005b7f',
         "H2 Electrolysis": "#179c7d",
         "H2 export": "#7c154d",
-        "Ammonia synthesis": '#fce356',
+        "Power-to-NH3": '#fce356',
         "Transmission line": '#4cc2a6',
         "Battery": '#836bad',
         "Oil": '#C0C0C0',
