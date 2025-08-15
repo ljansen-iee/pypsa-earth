@@ -40,6 +40,7 @@ scenario:
   clusters: [10]
   opts: 
   - Co2L0.78 # GECO2024, 1.5°C scenario, value for morocco and tunisia
+  - Co2L0.93
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030
   # - 2050
@@ -48,7 +49,7 @@ scenario:
   - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  # - "RF"
+  - "RF"
   - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "H2v1.0+NH3v1.0+FTv1.0"
