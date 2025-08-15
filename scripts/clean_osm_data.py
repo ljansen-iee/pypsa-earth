@@ -342,6 +342,7 @@ def clean_frequency(df, default_frequency="50"):
         "16.67": "16.7",
         "50;50;16.716.7": "50;50;16.7;16.7",
         "50;16.7?": "50;16.7",
+        "50.0": "50",
         # "24 kHz": "24000",
     }
 
@@ -443,8 +444,10 @@ def clean_cables(df):
         "line": "1",
     }
 
-    df["cables"] = df["cables"].map(
-        lambda x: x.replace(" ", "") if isinstance(x, str) else x
+    df["cables"] = (
+        df["cables"]
+        .replace(repl_cables)
+        .map(lambda x: x.replace(" ", "") if isinstance(x, str) else x)
     )
 
     return df
