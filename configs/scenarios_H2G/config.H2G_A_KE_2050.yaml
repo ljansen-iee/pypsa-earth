@@ -29,9 +29,7 @@ custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder
 
 run:
   name: "H2G_A_KE_2050" # use this to keep track of runs with different settings
-  # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
   sector_name: "H2G_A_KE_2050" # use this to keep track of sector scenario runs
-  # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -40,14 +38,15 @@ scenario:
   simpl: [""]
   ll: ["copt"]
   clusters: [10]
-  opts: [Co2L0.05] # Co2L0.00 TODO per country: adjust factor (e.g. Co2L0.8 for 2035) and co2base (see below) per country and planning_horizon based on excel file
+  opts: [Co2L0.00] # Co2L0.00 TODO per country: adjust factor (e.g. Co2L0.8 for 2035) and co2base (see below) per country and planning_horizon based on excel file
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2035
-  # - 2050
+  # - 2035
+  - 2050
   sopts:
   - "3H"
   demand:
-  - "NZ"
+  - "AB"
+  # - "NZ" #TODO: use NZ!
 
 
 augmented_line_connection:
@@ -107,7 +106,7 @@ export:
   endogenous_price: 400 # EUR/MWh # Market price, for wich the hydrogen for endogenous exports is sold. Only considered, if ["export"]["endogenous"] is set to true.
   store: true # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
-  h2export: [3.33, 13.33, 23.33] # Yearly export demand in TWh. Only considered, if ["export"]["endogenous"] is set to false
+  h2export: [23.33, 78.33, 133.32] # Yearly export demand in TWh. Only considered, if ["export"]["endogenous"] is set to false
   # Assumptions: Africas market-based export potential (shipped and piped) is 4 to 10 MtH2 by 2035 and 35(6) to 50 MtH2 via different products by 2050. (cf. Deloitte2023, HydrogenCouncil2024, HydrogenCouncil2022, IRENA2023) 
   # 0.1 Mtpa: 3.33 TWh/a and about 1GW of electrolyser capacity as a lower bound for 2035.
   # 0.4 Mtpa: 13.33 TWh/a and about 3GW of electrolyser capacity as a lower bound for 2035.

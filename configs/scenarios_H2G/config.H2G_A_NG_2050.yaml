@@ -29,9 +29,7 @@ custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder
 
 run:
   name: "H2G_A_NG_2050" # use this to keep track of runs with different settings
-  # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
   sector_name: "H2G_A_NG_2050" # use this to keep track of sector scenario runs
-  # TODO per country: H2G_<A/B><Iteration>_<Country Code> - Bsp: H2G_A1_ZA
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -47,7 +45,8 @@ scenario:
   sopts:
   - "3H"
   demand:
-  - "NZ"
+  # - "AB"
+  - "NZ" #TODO: use NZ!
 
 
 augmented_line_connection:
@@ -274,42 +273,6 @@ sector:
 
 
 solving:
-  solver:
-    name: gurobi
-    options: gurobi-default
-
   solver_options:
     gurobi-default:
       threads: 16
-      method: 2 # barrier
-      crossover: 0
-      BarConvTol: 1.e-6
-      OptimalityTol: 1.e-6
-      Seed: 123
-      AggFill: 0
-      PreDual: 0
-      GURO_PAR_BARDENSETHRESH: 200
-      BarHomogeneous: 1
-      BarOrder: 0
-    gurobi-numeric-focus:
-      NumericFocus: 3 # Favour numeric stability over speed
-      method: 2 # barrier
-      crossover: 0 # do not use crossover
-      BarHomogeneous: 1 # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-4
-      OptimalityTol: 1.e-4
-      ObjScale: -0.5
-      threads: 8
-      Seed: 123
-    gurobi-fallback: # Use gurobi defaults
-      crossover: 0
-      method: 2 # barrier
-      BarHomogeneous: 1 # Use homogeneous barrier if standard does not converge
-      BarConvTol: 1.e-5
-      FeasibilityTol: 1.e-5
-      OptimalityTol: 1.e-5
-      Seed: 123
-      threads: 8
-
-  mem: 30000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
