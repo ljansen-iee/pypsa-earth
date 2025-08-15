@@ -1360,6 +1360,7 @@ def add_shipping(n, costs):
         options["shipping_average_efficiency"] / costs.at["fuel cell", "efficiency"]
     )
 
+    # TODO add methanol, ammonia
     # check whether item depends on investment year
     shipping_hydrogen_share = get(
         options["shipping_hydrogen_share"], demand_sc + "_" + str(investment_year)
