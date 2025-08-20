@@ -450,6 +450,10 @@ def clean_cables(df):
         .map(lambda x: x.replace(" ", "") if isinstance(x, str) else x)
     )
 
+    # Convert numerics to strings while preserving NaN and other strings, which are filled later.
+    is_numeric_cables = ~pd.to_numeric(df["cables"], errors="coerce").isna()
+    df.loc[is_numeric_cables, "cables"] = df.loc[is_numeric_cables, "cables"].astype(str)
+
     return df
 
 
