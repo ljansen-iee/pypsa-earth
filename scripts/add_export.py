@@ -70,6 +70,10 @@ def parse_eopts(eopts_string):
     matches = re.findall(pattern, eopts_string)
 
     for carrier, factor_type, value in matches:
+
+        if carrier not in ["H2", "NH3", "FT"]:
+            raise NotImplementedError(f"'{carrier}' is not yet implemented.")
+
         # Default factor is 1.0 if no value specified
         factor_value = float(value) if value else 1.0
 
