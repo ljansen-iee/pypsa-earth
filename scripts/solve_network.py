@@ -933,7 +933,7 @@ def set_h2_colors(n):
     n.model.add_constraints(total_pink == rhs_pink, name="pink_h2_share")
 
 
-def add_specific_link_for_export_constraint(n, link_tech, export_carrier):
+def add_specific_tech_for_export_constraint(n, link_tech, export_carrier):
     """
     Add a constraint to ensure that the production of a specified carrier (e.g., via a specific process/link)
     is greater than or equal to the exported quantity of a corresponding export commodity.
@@ -959,13 +959,8 @@ def add_specific_link_for_export_constraint(n, link_tech, export_carrier):
     Example
     -------
     >>> n.optimize.create_model(snapshots = n.snapshots)
-    >>> add_specific_link_for_export_constraint(n, "H2", "H2 export")
+    >>> add_specific_tech_for_export_constraint(n, "H2", "H2 export")
     # Adds constraint: Sum(link_p * efficiency) >= Sum(export_link_p)
-
-    Note
-    ----
-    This function should be called after the network model has been built but before
-    optimization (e.g., in the extra_functionality function of solve_network.py).
     """
     from xarray import DataArray
 
@@ -980,10 +975,8 @@ def add_specific_link_for_export_constraint(n, link_tech, export_carrier):
         period_weighting = n.investment_period_weightings.years[sns.unique("period")]
         weightings = weightings.mul(period_weighting, level=0, axis=0)
 
-    # Get all production links (link_tech)
     links = n.links.query(f"carrier == '{link_tech}'")
 
-    # Get all export links (export_carrier)
     export_links = n.links.query(f"carrier == '{export_carrier}'")
 
     if links.empty:
@@ -1008,18 +1001,17 @@ def add_specific_link_for_export_constraint(n, link_tech, export_carrier):
     export_link_p = m["Link-p"].loc[sns, export_links.index]
     rhs_expr = (export_link_p * w).sum()
 
-    constraint_name = f"green_export_tech_constraint-{export_carrier}"
+    constraint_name = f"specific_tech_for_export_constraint-{export_carrier}"
     m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
 
     logger.info(f"Added constraint '{constraint_name}': "
                 f"{len(links)} production links of type {link_tech} >= "
                 f"consumption of {len(export_links)} export links {export_carrier}")
 
-def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
+def add_specific_h2_techs_for_h2_export_and_conversion_constraint(n, h2_production_techs):
     """
-    Add a constraint to ensure that H2 electrolysis production is greater than or equal to 
-    the hydrogen consumption by all H2 conversion processes used for direct H2 export (H2 direct export, 
-    e-NH3 via Haber-Bosch, and e-FT hydrocarbon products via Fischer-Tropsch).
+    Add a constraint to ensure that H2 production previously defined as green H2 production is >= to
+    the hydrogen consumption by H2 conversion (Haber-Bosch, Fischer-Tropsch) or direct H2 export.
 
     This creates an inequality constraint with sense ">=":
     LHS: Sum of (Link-p * efficiency) for all "H2 Electrolysis" links
@@ -1038,17 +1030,14 @@ def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
     Example
     -------
     >>> n.optimize.create_model(snapshots = n.snapshots)
-    >>> add_h2_electrolysis_for_h2_export_and_conversion_constraint(n)
-    # Adds constraint: Sum(h2_electrolysis_p * efficiency) >= Sum(h2_conversion_consumption)
-
-    Note
-    ----
-    This function should be called after the network model has been built but before
-    optimization (e.g., in the extra_functionality function of solve_network.py).
+    >>> add_specific_h2_techs_for_h2_export_and_conversion_constraint(n, ["H2 Electrolysis"])
+    # Adds constraint: Sum(h2_electrolysis_p * efficiency) >= Sum(h2_conversion_consumption+h2_ex)
     """
     from xarray import DataArray
 
-    logger.info("Adding H2 electrolysis export constraint: H2 production >= H2 conversion consumption for export")
+    logger.info(
+        "Adding H2 production for direct export or conversion constraint: " \
+        "Sum(H2 production) >= Sum(H2 consumption for direct H2 export, Haber-Bosch and Fischer-Tropsch)")
 
     m = n.model
     sns = n.snapshots
@@ -1059,10 +1048,8 @@ def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
         period_weighting = n.investment_period_weightings.years[sns.unique("period")]
         weightings = weightings.mul(period_weighting, level=0, axis=0)
 
-    # Get H2 electrolysis links (LHS - production)
-    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+    h2_production_links = n.links.query(f"carrier in {h2_production_techs}")
 
-    # Get H2 conversion carriers for export (RHS - consumption)
     h2_conversion_carriers = ["Haber-Bosch", "Fischer-Tropsch"]
     h2_export_carriers = ["H2 export"]  # Direct H2 export
     
@@ -1070,7 +1057,7 @@ def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
     
     h2_direct_export_links = n.links.query(f"carrier in {h2_export_carriers}")
 
-    if h2_electrolysis_links.empty:
+    if h2_production_links.empty:
         logger.warning("No H2 electrolysis links found. Skipping constraint.")
         return
 
@@ -1083,10 +1070,10 @@ def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
         w = w.rename({"dim_0": "snapshot"})
 
     # LHS: Sum of (Link-p * efficiency) for H2 electrolysis links
-    link_p_electrolysis = m["Link-p"].loc[sns, h2_electrolysis_links.index]
+    link_p_h2_production = m["Link-p"].loc[sns, h2_production_links.index]
     # Convert efficiency to DataArray for proper broadcasting
-    efficiency_electrolysis_da = DataArray(h2_electrolysis_links["efficiency"], dims=["Link"], coords={"Link": h2_electrolysis_links.index})
-    lhs_expr = (link_p_electrolysis * efficiency_electrolysis_da * w).sum()
+    efficiency_h2_production_da = DataArray(h2_production_links["efficiency"], dims=["Link"], coords={"Link": h2_production_links.index})
+    lhs_expr = (link_p_h2_production * efficiency_h2_production_da * w).sum()
 
     # RHS: Sum of hydrogen consumption by H2 conversion processes
     rhs_expressions = []
@@ -1125,16 +1112,16 @@ def add_h2_electrolysis_for_h2_export_and_conversion_constraint(n):
     # Sum all RHS expressions
     rhs_expr = sum(rhs_expressions)
 
-    constraint_name = "h2_electrolysis_gt_h2_conversion_constraint"
+    constraint_name = "h2_techs_for_h2_export_and_conversion_constraint"
     m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
 
     total_conversion_links = len(h2_conversion_links) + len(h2_direct_export_links)
     logger.info(f"Added constraint '{constraint_name}': "
-                f"{len(h2_electrolysis_links)} H2 electrolysis links >= "
+                f"{len(h2_production_links)} H2 electrolysis links >= "
                 f"H2 consumption by {total_conversion_links} export-related links")
 
 
-def add_hourly_green_h2_constraint(n):
+def add_hourly_green_h2_constraint(n, h2_production_techs):
     """
     Add a constraint to ensure that the power generation from renewable sources (solar and onwind)
     plus hydro storage unit dispatch plus battery discharger output is greater than or equal to 
@@ -1157,7 +1144,7 @@ def add_hourly_green_h2_constraint(n):
     Example
     -------
     >>> n.optimize.create_model(snapshots = n.snapshots)
-    >>> add_hourly_green_h2_constraint(n)
+    >>> add_hourly_green_h2_constraint(n, ["H2 Electrolysis"])
     # Adds constraint: Sum(renewable_gen_p + hydro_storage_p + battery_discharge_p) >= Sum(h2_electrolysis_p)
 
     Note
@@ -1178,20 +1165,20 @@ def add_hourly_green_h2_constraint(n):
         period_weighting = n.investment_period_weightings.years[sns.unique("period")]
         weightings = weightings.mul(period_weighting, level=0, axis=0)
 
-    renewable_carriers = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
-    renewable_gens = n.generators.query(f"carrier in {renewable_carriers}")
+    renewable_techs = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
+    renewable_gens = n.generators.query(f"carrier in {renewable_techs}")
 
     hydro_storage_units = n.storage_units.query("carrier == 'hydro'")
 
     battery_discharger_links = n.links[n.links.index.str.contains("battery discharger")]
 
-    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+    h2_production_links = n.links.query(f"carrier in {h2_production_techs}")
 
     if renewable_gens.empty and hydro_storage_units.empty and battery_discharger_links.empty:
         logger.warning("No renewable generators, hydro storage units, or battery dischargers found. Skipping constraint.")
         return
 
-    if h2_electrolysis_links.empty:
+    if h2_production_links.empty:
         logger.warning("No H2 electrolysis links found. Skipping constraint.")
         return
 
@@ -1224,8 +1211,8 @@ def add_hourly_green_h2_constraint(n):
     lhs_expr = sum(lhs_expressions)
 
     # RHS: Sum of (Link-p) for H2 electrolysis links
-    link_p = m["Link-p"].loc[sns, h2_electrolysis_links.index]
-    # efficiency = h2_electrolysis_links["efficiency"] # p is electricity input, no need to multiply by efficiency
+    link_p = m["Link-p"].loc[sns, h2_production_links.index]
+    # efficiency = h2_production_links["efficiency"] # p is electricity input, no need to multiply by efficiency
     rhs_expr = (link_p * w).sum()
 
     constraint_name = "hourly_green_h2_constraint"
@@ -1235,9 +1222,9 @@ def add_hourly_green_h2_constraint(n):
                 f"{len(renewable_gens)} renewable generators + "
                 f"{len(hydro_storage_units)} hydro storage units + "
                 f"{len(battery_discharger_links)} battery dischargers >= "
-                f"electricity consumption of {len(h2_electrolysis_links)} H2 electrolysis links")
+                f"electricity consumption of {len(h2_production_links)} H2 electrolysis links")
 
-def add_total_green_h2_constraint(n):
+def add_total_green_h2_constraint(n, h2_production_techs):
     """
     Add a constraint to ensure that the total power generation from renewable sources (solar and onwind)
     plus hydro storage unit dispatch is greater than or equal to the total power consumption of H2 electrolysis links.
@@ -1259,7 +1246,7 @@ def add_total_green_h2_constraint(n):
     Example
     -------
     >>> n.optimize.create_model(snapshots = n.snapshots)
-    >>> add_total_green_h2_constraint(n)
+    >>> add_total_green_h2_constraint(n, ["H2 Electrolysis"])
     # Adds constraint: Sum_all_snapshots(renewable_gen_p + hydro_storage_p) >= Sum_all_snapshots(h2_electrolysis_p)
 
     Note
@@ -1290,18 +1277,18 @@ def add_total_green_h2_constraint(n):
         period_weighting = n.investment_period_weightings.years[sns.unique("period")]
         weightings = weightings.mul(period_weighting, level=0, axis=0)
 
-    renewable_carriers = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
-    renewable_gens = n.generators.query(f"carrier in {renewable_carriers}")
+    renewable_techs = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
+    renewable_gens = n.generators.query(f"carrier in {renewable_techs}")
 
     hydro_storage_units = n.storage_units.query("carrier == 'hydro'")
 
-    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+    h2_production_links = n.links.query(f"carrier in {h2_production_techs}")
 
     if renewable_gens.empty and hydro_storage_units.empty:
         logger.warning("No renewable generators or hydro storage units found. Skipping constraint.")
         return
 
-    if h2_electrolysis_links.empty:
+    if h2_production_links.empty:
         logger.warning("No H2 electrolysis links found. Skipping constraint.")
         return
 
@@ -1327,7 +1314,7 @@ def add_total_green_h2_constraint(n):
     lhs_expr = sum(lhs_expressions)
 
     # RHS: Sum across all snapshots of H2 electrolysis consumption
-    link_p = m["Link-p"].loc[sns, h2_electrolysis_links.index]
+    link_p = m["Link-p"].loc[sns, h2_production_links.index]
     rhs_expr = (link_p * w).sum()
 
     constraint_name = "total_green_h2_constraint"
@@ -1336,7 +1323,7 @@ def add_total_green_h2_constraint(n):
     logger.info(f"Added constraint '{constraint_name}': "
                 f"Total from {len(renewable_gens)} renewable generators + "
                 f"{len(hydro_storage_units)} hydro storage units >= "
-                f"total electricity consumption of {len(h2_electrolysis_links)} H2 electrolysis links")
+                f"total electricity consumption of {len(h2_production_links)} H2 electrolysis links")
 
 def add_existing(n):
     if snakemake.wildcards["planning_horizons"] == "2050":
@@ -1483,14 +1470,48 @@ def extra_functionality(n, snapshots):
 
     elif (hydrogen_policy["temporal_matching"] == "h2_hourly_matching"):
         logger.info("setting general H2 electrolysis to hourly greenness constraint")
-        # This constraints all H2 electrolysis. # TODO calculate h2 content of all exports and define factor for domestic green-h2-ratio.
-        add_hourly_green_h2_constraint(n) # includes battery discharge on lhs_expr
-        add_total_green_h2_constraint(n) # excludes battery discharge on lhs_expr
-        
+        # NB: This constraints all H2 electrolysis, i.e. for h2 used domestically or for exports.
+        h2_production_technologies = [
+            "H2 Electrolysis",
+            "Alkaline electrolyzer large",
+            "Alkaline electrolyzer medium",
+            "Alkaline electrolyzer small",
+            "PEM electrolyzer",
+            "SOEC",
+            "Solid biomass steam reforming",
+            "Biomass gasification",
+            "Biomass gasification CC",
+        ]
+        add_hourly_green_h2_constraint(n, h2_production_technologies) # includes battery discharge on lhs_expr
+        add_total_green_h2_constraint(n, h2_production_technologies) # excludes battery discharge on lhs_expr
+
     else:
         raise ValueError(
-            'H2 export constraint is invalid, check config["policy_config"]'
+            'temporal_matching value is invalid, check config["policy_config"]'
         )
+    
+    if hydrogen_policy["technology_matching_for_derivatives_and_export"]:
+        logger.info("setting specific H2 production technologies for derivatives and export")
+        h2_production_technologies = [
+            "H2 Electrolysis",
+            "Alkaline electrolyzer large",
+            "Alkaline electrolyzer medium",
+            "Alkaline electrolyzer small",
+            "PEM electrolyzer",
+            "SOEC",
+            "Solid biomass steam reforming",
+            "Biomass gasification",
+            "Biomass gasification CC",
+        ]
+        add_specific_h2_techs_for_h2_export_and_conversion_constraint(n, h2_production_technologies)
+
+    if n.links.carrier.str.contains("NH3 export").any():
+        logger.info("adding specific_link_for_export_constraint to ensure that Haber-Bosch >= NH3 export link")
+        add_specific_tech_for_export_constraint(n, "Haber-Bosch", "NH3 export") # Probably not required at the moment
+    if n.links.carrier.str.contains("FT export").any():
+        logger.info("adding specific_link_for_export_constraint to ensure that Fischer-Tropsch >= FT export link")
+        add_specific_tech_for_export_constraint(n, "Fischer-Tropsch", "FT export") # otherwise fossil oil could be exported
+
 
     if snakemake.config["sector"]["hydrogen"]["network"]:
         if snakemake.config["sector"]["hydrogen"]["network_limit"]:
@@ -1501,15 +1522,6 @@ def extra_functionality(n, snapshots):
     if snakemake.config["sector"]["hydrogen"]["set_color_shares"]:
         logger.info("setting H2 color mix")
         set_h2_colors(n)
-
-    add_h2_electrolysis_for_h2_export_and_conversion_constraint(n)
-    
-    if n.links.carrier.str.contains("NH3 export").any():
-        logger.info("adding specific_link_for_export_constraint to ensure that Haber-Bosch >= NH3 export link")
-        add_specific_link_for_export_constraint(n, "Haber-Bosch", "NH3 export")
-    if n.links.carrier.str.contains("FT export").any():
-        logger.info("adding specific_link_for_export_constraint to ensure that Fischer-Tropsch >= FT export link")
-        add_specific_link_for_export_constraint(n, "Fischer-Tropsch", "FT export")
 
 
 def solve_network(n, config, solving, **kwargs):
@@ -1553,8 +1565,9 @@ def solve_network(n, config, solving, **kwargs):
 
     return n
 
+##### temporary validation functions
 
-def validate_green_h2_constraints(n):
+def validate_green_h2_constraints(n, hydrogen_policy):
     """
     Validate the impact and effectiveness of green hydrogen constraints.
     
@@ -1583,13 +1596,14 @@ def validate_green_h2_constraints(n):
     sns = n.snapshots
     
     # Get renewable generators and H2 electrolysis links
-    renewable_carriers = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
-    renewable_gens = n.generators.query(f"carrier in {renewable_carriers}")
+    renewable_techs = ["solar", "onwind", "offwind-ac", "offwind-dc", "csp", "ror"]
+    renewable_gens = n.generators.query(f"carrier in {renewable_techs}")
     hydro_storage_units = n.storage_units.query("carrier == 'hydro'")
     battery_discharger_links = n.links[n.links.index.str.contains("battery discharger")]
-    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+    h2_production_techs = hydrogen_policy["h2_techs_for_derivatives_and_export"]
+    h2_production_links = n.links.query(f"carrier in {h2_production_techs}")
     
-    if h2_electrolysis_links.empty:
+    if h2_production_links.empty:
         logger.warning("No H2 electrolysis links found. Skipping green H2 validation.")
         return {"error": "No H2 electrolysis links found"}
     
@@ -1611,7 +1625,7 @@ def validate_green_h2_constraints(n):
         battery_discharge = battery_discharge_raw * battery_efficiency
     
     # Calculate H2 electrolysis consumption
-    h2_consumption = n.links_t.p0[h2_electrolysis_links.index].sum(axis=1)
+    h2_consumption = n.links_t.p0[h2_production_links.index].sum(axis=1)
     
     # 1. Hourly constraint validation
     hourly_green_supply = renewable_generation + hydro_dispatch + battery_discharge
@@ -1642,13 +1656,13 @@ def validate_green_h2_constraints(n):
     }
     
     # 3. H2 production vs consumption balance
-    h2_production = n.links_t.p0[h2_electrolysis_links.index] * n.links.loc[h2_electrolysis_links.index, "efficiency"].values
+    h2_production = n.links_t.p0[h2_production_links.index] * n.links.loc[h2_production_links.index, "efficiency"].values
     total_h2_production = (h2_production.sum(axis=1) * n.snapshot_weightings.generators).sum()
     
     validation_results["h2_balance"] = {
         "total_h2_production_MWh": float(total_h2_production),
         "total_electricity_consumption_MWh": float(total_h2_consumption),
-        "average_efficiency": float(n.links.loc[h2_electrolysis_links.index, "efficiency"].mean())
+        "average_efficiency": float(n.links.loc[h2_production_links.index, "efficiency"].mean())
     }
     
     # 4. Energy allocation analysis
@@ -1672,7 +1686,7 @@ def validate_green_h2_constraints(n):
     return validation_results
 
 
-def validate_export_constraints(n):
+def validate_export_constraints(n, h2_production_techs):
     """
     Validate the impact and effectiveness of export-related constraints.
     
@@ -1699,21 +1713,21 @@ def validate_export_constraints(n):
     sns = n.snapshots
     
     # Get relevant links
-    h2_electrolysis_links = n.links.query("carrier == 'H2 Electrolysis'")
+    h2_production_links = n.links.query(f"carrier in {h2_production_techs}")
     haber_bosch_links = n.links.query("carrier == 'Haber-Bosch'")
     fischer_tropsch_links = n.links.query("carrier == 'Fischer-Tropsch'")
     h2_export_links = n.links.query("carrier == 'H2 export'")
     nh3_export_links = n.links.query("carrier == 'NH3 export'")
     ft_export_links = n.links.query("carrier == 'FT export'")
     
-    if h2_electrolysis_links.empty:
+    if h2_production_links.empty:
         logger.warning("No H2 electrolysis links found. Skipping export validation.")
         return {"error": "No H2 electrolysis links found"}
     
     # 1. H2 electrolysis production vs export consumption
     h2_production_total = 0
-    if not h2_electrolysis_links.empty:
-        h2_production = n.links_t.p0[h2_electrolysis_links.index] * n.links.loc[h2_electrolysis_links.index, "efficiency"].values
+    if not h2_production_links.empty:
+        h2_production = n.links_t.p0[h2_production_links.index] * n.links.loc[h2_production_links.index, "efficiency"].values
         h2_production_total = (h2_production.sum(axis=1) * n.snapshot_weightings.generators).sum()
     
     # Calculate total H2 consumption for exports
@@ -1810,13 +1824,13 @@ def validate_export_constraints(n):
     return validation_results
 
 
-def validate_all_constraints(n):
+def validate_all_export_constraints(n, hydrogen_policy):
 
     logger.info("=== Comprehensive Constraint Validation ===")
     
     validation_results = {
-        "green_h2": validate_green_h2_constraints(n),
-        "exports": validate_export_constraints(n)
+        "green_h2": validate_green_h2_constraints(n, hydrogen_policy),
+        "exports": validate_export_constraints(n, hydrogen_policy)
     }
     
     # Overall assessment
@@ -1837,6 +1851,7 @@ def validate_all_constraints(n):
     
     return validation_results
 
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from _helpers import mock_snakemake
@@ -1851,7 +1866,7 @@ if __name__ == "__main__":
             discountrate="0.082",
             demand="RF",
             sopts="144H",
-            eopts="H2v1.0+NH3v1.0+FTv1.0",
+            eopts="NH3v1.0+FTv1.0",
             # configfile="config.tutorial.yaml",
         )
 
@@ -1903,8 +1918,8 @@ if __name__ == "__main__":
     logger.info(f"Objective constant: {n.objective_constant}")
 
 
-    results = validate_all_constraints(n)
-    
+    results = validate_all_export_constraints(n, snakemake.config["policy_config"]["hydrogen"])
+
     # Check if all constraints are satisfied
     if results["summary"]["all_constraints_satisfied"]:
         logger.info("All green H2 and export constraints satisfied!")

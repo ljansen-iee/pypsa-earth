@@ -24,16 +24,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
-from types import SimpleNamespace
 
 from _helpers import locate_bus, override_component_attrs, prepare_costs
 
 logger = logging.getLogger(__name__)
-
-spatial = SimpleNamespace()
-spatial.h2 = SimpleNamespace()
-spatial.ammonia = SimpleNamespace()
-spatial.oil = SimpleNamespace()
 
 def parse_eopts(eopts_string):
     """
@@ -124,7 +118,7 @@ def create_ship_profile(export_volume, ship_opts):
 
     landing = export_volume / ship_capacity  # fraction of max delivery
     pause_time = 8760 / landing - (fill_time + travel_time)
-    full_cycle = fill_time + travel_time + unload_time + pause_time
+    # full_cycle = fill_time + travel_time + unload_time + pause_time # not used
 
     max_transport = ship_capacity * 8760 / (fill_time + travel_time + unload_time)
     print(f"The maximum transport capacity per ship is {max_transport/1e6:.2f} TWh/year")
@@ -209,7 +203,6 @@ def create_export_profile(export_volume, export_type="constant"):
 
     return export_profile
 
-
 def select_ports(n):
     """
     This function selects the buses where ports are located.
@@ -236,20 +229,81 @@ def select_ports(n):
     gcol = "gadm_{}".format(gadm_layer_id)
     ports_sel = ports.loc[~ports[gcol].duplicated(keep="first")].set_index(gcol)
 
-    # Select the hydrogen buses based on nodes with ports
-    nodes_ports = n.buses.loc[ports_sel.index]
-    nodes_ports.index.name = "Bus"
+    # Select and define the nodes with ports
+    nodes_with_port = n.buses.loc[ports_sel.index].index
+    nodes_with_port.name = "Bus"
 
-    return nodes_ports
+    return nodes_with_port
 
 
-def add_export(n, exp_carrier, volume, price, profile):
-    """
+def add_export(n, exp_carrier, volume, price, profile, nodes_with_port, costs, snakemake):
+    """    
+    This function creates a centralized export system by adding:
+    1. A central export bus
+    2. Export links connecting port buses to the central export bus
+    3. Export demand (as load or negative generator) at the central bus
+    4. Optional hydrogen storage for buffering export demand
+    
+    The function supports both direct export (H2, NH3) and carbon-neutral 
+    hydrocarbon export (FT, MeOH) with CO2 accounting.
+    
+    Parameters
+    ----------
+    n : pypsa.Network
+        The PyPSA network to modify
+    exp_carrier : str
+        Export carrier type. Supported: 'H2', 'NH3', 'FT'
+    volume : float
+        Annual export volume in MWh. Can be np.inf for unlimited endogenous export
+    price : float
+        Export price in currency per MWh. Used as negative marginal cost for export links
+    profile : pd.Series
+        Time series profile for export demand (used only for exogenous export)
+    nodes_with_port : pd.Index
+        List of bus names where ports are located
+    costs : pd.DataFrame
+        Cost parameters DataFrame for CO2 intensity and storage costs
+    snakemake : snakemake.Snakemake
+        Snakemake workflow object containing configuration parameters
+        
+    Notes
+    -----
+    
+    For H2 and NH3, direct export links are created with 100% efficiency.
+    For FT and MeOH, links include CO2 accounting to ensure carbon neutrality,
+    connecting to 'co2 atmosphere' bus with appropriate CO2 intensity factors.
+    
+    Export implementation depends on configuration:
+    - Endogenous export: Adds negative generator with optional volume constraint
+    - Exogenous export: Adds load with specified profile
+    
+    Optional H2 storage can be added for export buffering when configured.
+    
+    Raises
+    ------
+    KeyError
+        If required carrier buses are not found in the network
+    NotImplementedError
+        If export carrier is not supported
+    ValueError
+        If configuration parameters are invalid
+        
+    Examples
+    --------
+    >>> add_export(network, 'H2', 1000000, 50.0, h2_profile, ports, cost_df, snakemake_obj)
+    # Adds H2 export with 1 TWh annual volume at 50 €/MWh
     
     """
+    country_shape = gpd.read_file(snakemake.input["shapes_path"])
+    # Find most northwestern point in country shape and get x and y coordinates
+    country_shape = country_shape.to_crs(
+        "EPSG:3395"
+    )  # Project to Mercator projection (Projected)
+
     # Get coordinates of the most western and northern point of the country and add a buffer of 2 degrees (equiv. to approx 220 km)
     x_export = country_shape.geometry.centroid.x.min() - 2
     y_export = country_shape.geometry.centroid.y.max() + 2
+
     # add one central export bus
     n.add(
         "Bus",
@@ -264,7 +318,7 @@ def add_export(n, exp_carrier, volume, price, profile):
     if exp_carrier in ["H2", "NH3"]:
 
         try: 
-            buses_ports = n.buses.loc[spatial.nodes_ports + " " + exp_carrier].index
+            buses_ports = n.buses.loc[nodes_with_port + " " + exp_carrier].index
         except KeyError:
             raise KeyError(
                 f"No buses found for {exp_carrier}. "
@@ -287,7 +341,7 @@ def add_export(n, exp_carrier, volume, price, profile):
         )
 
     # add links for FT and MeOH with accounting for CO2
-    elif exp_carrier in ["FT","MeOH"]: 
+    elif exp_carrier in ["FT"]: # TODO: add "MeOH" once implemented in all steps
         # For the green hydrocarbon export, the reference bus carrier are oil, methanol or gas.
         # An extra constraints will be added in solve_network to ensure that the green liquid fuel conversion
         # technologies from hydrogen to X will be used ('>='). 
@@ -306,7 +360,7 @@ def add_export(n, exp_carrier, volume, price, profile):
         co2_intensity = costs.at[co2_i[exp_carrier][0], co2_i[exp_carrier][1]]
         
         try: 
-            buses_ports = n.buses.loc[spatial.nodes_ports + " " + ref_bus_carrier].index
+            buses_ports = n.buses.loc[nodes_with_port + " " + ref_bus_carrier].index
         except KeyError:
             raise KeyError(
                 f"No buses found for {exp_carrier}. "
@@ -435,12 +489,6 @@ if __name__ == "__main__":
     overrides = override_component_attrs(snakemake.input.overrides)
     n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
     countries = list(n.buses.country.unique())
-    country_shape = gpd.read_file(snakemake.input["shapes_path"])
-    # Find most northwestern point in country shape and get x and y coordinates
-    country_shape = country_shape.to_crs(
-        "EPSG:3395"
-    )  # Project to Mercator projection (Projected)
-
 
     price_factor, volume_factor = parse_eopts(snakemake.wildcards["eopts"])
     export_carriers = list(set(price_factor.keys()).union(set(volume_factor.keys())))
@@ -466,8 +514,7 @@ if __name__ == "__main__":
     )
 
     # select and define nodes for export via port and shipping 
-    nodes_ports = select_ports(n)
-    spatial.nodes_ports = nodes_ports.index
+    nodes_with_port = select_ports(n)
 
     # add export values and components to network for each export carrier
     for export_carrier in export_carriers:
@@ -487,11 +534,11 @@ if __name__ == "__main__":
 
 
         
-        add_export(n, export_carrier, export_volume, export_price, export_profile)
+        add_export(n, export_carrier, export_volume, export_price, export_profile, nodes_with_port, costs, snakemake)
 
 
 
     n.export_to_netcdf(snakemake.output[0])
 
     logger.info("Network successfully exported")
-
+    
