@@ -1073,7 +1073,7 @@ def add_specific_h2_techs_for_h2_export_and_conversion_constraint(n, h2_producti
                 f"H2 consumption by {total_conversion_links} export-related links")
 
 
-def add_hourly_green_h2_constraint(n, h2_production_techs):
+def add_hourly_green_h2_constraint(n, h2_production_techs, green_h2_fraction=1.0):
     """
     Add a constraint to ensure that the power generation from renewable sources (solar and onwind)
     plus hydro storage unit dispatch plus battery discharger output is greater than or equal to 
@@ -1082,12 +1082,16 @@ def add_hourly_green_h2_constraint(n, h2_production_techs):
     This creates an inequality constraint with sense ">=":
     LHS: Sum of Generator-p for carriers ["solar", "onwind"] + Sum of StorageUnit-p_dispatch for carrier "hydro"
          + Sum of (Link-p * efficiency) for battery discharger links
-    RHS: Sum of Link-p for H2 production technology links
+    RHS: Sum of Link-p for H2 production technology links * green_h2_fraction
 
     Parameters
     ----------
     n : pypsa.Network
         Network to add constraint to
+    h2_production_techs : list
+        List of H2 production technology carriers
+    green_h2_fraction : float, default 1.0
+        Fraction of H2 production that must be green (between 0 and 1)
 
     Returns
     -------
@@ -1106,7 +1110,7 @@ def add_hourly_green_h2_constraint(n, h2_production_techs):
     """
     from xarray import DataArray
 
-    logger.info("Adding hourly H2 export constraint: renewable generation + hydro storage + battery discharge >= H2 production consumption")
+    logger.info("Adding hourly green H2 constraint for all H2 production: renewable generation + hydro storage + battery discharge >= H2 production consumption")
 
     m = n.model
     sns = n.snapshots
@@ -1165,7 +1169,7 @@ def add_hourly_green_h2_constraint(n, h2_production_techs):
     # RHS: Sum of (Link-p) for H2 production technology links
     link_p = m["Link-p"].loc[sns, h2_production_links.index]
     # efficiency = h2_production_links["efficiency"] # p is electricity input, no need to multiply by efficiency
-    rhs_expr = (link_p * w).sum()
+    rhs_expr = (link_p * w * green_h2_fraction).sum()
 
     constraint_name = "hourly_green_h2_constraint"
     m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
@@ -1176,7 +1180,7 @@ def add_hourly_green_h2_constraint(n, h2_production_techs):
                 f"{len(battery_discharger_links)} battery dischargers >= "
                 f"electricity consumption of {len(h2_production_links)} H2 production technology links")
 
-def add_total_green_h2_constraint(n, h2_production_techs):
+def add_total_green_h2_constraint(n, h2_production_techs, green_h2_fraction=1.0):
     """
     Add a constraint to ensure that the total power generation from renewable sources (solar and onwind)
     plus hydro storage unit dispatch is greater than or equal to the total power consumption of H2 production technology links.
@@ -1184,12 +1188,16 @@ def add_total_green_h2_constraint(n, h2_production_techs):
 
     This creates an inequality constraint with sense ">=":
     LHS: Sum across all snapshots of (Generator-p for renewable carriers + StorageUnit-p_dispatch for hydro)
-    RHS: Sum across all snapshots of Link-p for H2 production technology links
+    RHS: Sum across all snapshots of Link-p for H2 production technology links * green_h2_fraction
 
     Parameters
     ----------
     n : pypsa.Network
         Network to add constraint to
+    h2_production_techs : list
+        List of H2 production technology carriers
+    green_h2_fraction : float, default 1.0
+        Fraction of H2 production that must be green (between 0 and 1)
 
     Returns
     -------
@@ -1199,7 +1207,9 @@ def add_total_green_h2_constraint(n, h2_production_techs):
     -------
     >>> n.optimize.create_model(snapshots = n.snapshots)
     >>> add_total_green_h2_constraint(n, ["H2 Electrolysis"])
-    # Adds constraint: Sum_all_snapshots(renewable_gen_p + hydro_storage_p) >= Sum_all_snapshots(h2_electrolysis_p)
+    # Adds constraint: Sum_all_snapshots(renewable_gen_p + hydro_storage_p) >= Sum_all_snapshots(h2_electrolysis_p * 1.0)
+    >>> add_total_green_h2_constraint(n, ["H2 Electrolysis"], green_h2_fraction=0.8)
+    # Adds constraint: Sum_all_snapshots(renewable_gen_p + hydro_storage_p) >= Sum_all_snapshots(h2_electrolysis_p * 0.8)
 
     Note
     ----
@@ -1267,7 +1277,7 @@ def add_total_green_h2_constraint(n, h2_production_techs):
 
     # RHS: Sum across all snapshots of H2 electrolysis consumption
     link_p = m["Link-p"].loc[sns, h2_production_links.index]
-    rhs_expr = (link_p * w).sum()
+    rhs_expr = (link_p * w * green_h2_fraction).sum()
 
     constraint_name = "total_green_h2_constraint"
     m.add_constraints(lhs_expr >= rhs_expr, name=constraint_name)
@@ -1436,10 +1446,11 @@ def extra_functionality(n, snapshots):
         logger.info("no h2 export constraint set")
 
     elif (hydrogen_policy["temporal_matching"] == "h2_hourly_matching"):
-        logger.info("setting general H2 electrolysis to hourly greenness constraint")
+        green_h2_fraction = snakemake.config["policy_config"]["hydrogen"]["allowed_excess"]
+        logger.info(f"setting total and hourly green H2 constraint with allowed excess (green H2 fraction): {green_h2_fraction}")
         # NB: This constraints all H2 electrolysis, i.e. for h2 used domestically or for exports.
-        add_hourly_green_h2_constraint(n, h2_production_technologies) # includes battery discharge on lhs_expr
-        add_total_green_h2_constraint(n, h2_production_technologies) # excludes battery discharge on lhs_expr
+        add_hourly_green_h2_constraint(n, h2_production_technologies, green_h2_fraction) # includes battery discharge on lhs_expr
+        add_total_green_h2_constraint(n, h2_production_technologies, green_h2_fraction) # excludes battery discharge on lhs_expr
 
     else:
         raise ValueError(
