@@ -348,7 +348,10 @@ def clean_frequency(df, default_frequency="50"):
 
     # TODO: default frequency may be by country
     df["tag_frequency"] = (
-        df["tag_frequency"].fillna(default_frequency).astype(str).replace(repl_freq)
+        df["tag_frequency"]
+        .fillna(default_frequency)
+        .astype(str)
+        .replace(repl_freq)
     )
 
     return df
@@ -407,12 +410,22 @@ def clean_circuits(df):
         "1.": "1",
     }
 
-    # note: no string conversion here! it is performed later on
+    # note: no string conversion for all entries in clean_circuits! it is performed later on
     df["circuits"] = (
         df["circuits"]
         .replace(repl_circuits)
         .map(lambda x: x.replace(" ", "") if isinstance(x, str) else x)
     )
+
+    # Convert numbers in different dtypes to string while preserving NaN or other strings.
+    is_numeric = ~pd.to_numeric(df["circuits"], errors="coerce").isna()
+    df["circuits"] = df["circuits"].mask(is_numeric, df["circuits"].astype(str))
+
+    # Report non-numeric and non-NaN values, which should be added to repl_circuits.
+    if df.loc[~is_numeric, "circuits"].notna().any():
+        logger.warning(
+            "Non-numeric and non-NaN values found in circuits column, consider replacement: "
+            + str(df.loc[~is_numeric, "circuits"].unique()))
 
     return df
 
@@ -444,15 +457,21 @@ def clean_cables(df):
         "line": "1",
     }
 
-    df["cables"] = (
-        df["cables"]
-        .replace(repl_cables)
-        .map(lambda x: x.replace(" ", "") if isinstance(x, str) else x)
-    )
+    df["cables"] = (  
+        df["cables"]  
+        .replace(repl_cables)  
+        .map(lambda x: x.replace(" ", "") if isinstance(x, str) else x)  
+    )  
 
-    # Convert numerics to strings while preserving NaN and other strings, which are filled later.
-    is_numeric_cables = ~pd.to_numeric(df["cables"], errors="coerce").isna()
-    df.loc[is_numeric_cables, "cables"] = df.loc[is_numeric_cables, "cables"].astype(str)
+    # Convert numbers in different dtypes to string while preserving NaN or other strings.
+    is_numeric = ~pd.to_numeric(df["cables"], errors="coerce").isna()
+    df["cables"] = df["cables"].mask(is_numeric, df["cables"].astype(str))
+
+    # Report non-numeric and non-NaN values, which should be added to repl_cables.
+    if df.loc[~is_numeric, "cables"].notna().any():
+        logger.warning(
+            "Non-numeric and non-NaN values found in cables column, consider replacement: "
+            + str(df.loc[~is_numeric, "cables"].unique()))
 
     return df
 
@@ -564,12 +583,7 @@ def fill_circuits(df):
             return ret_def
 
     # cables requirement for circuits calculation
-    cables_req = {
-        "50": 3,
-        "60": 3,
-        "16.7": 2,
-        "0": 2,
-    }
+    cables_req = {"50": 3, "60": 3, "16.7": 2, "0": 2}
 
     def _basic_cables(f_val, cables_req=cables_req, def_circ=2):
         return cables_req[f_val] if f_val in cables_req.keys() else def_circ
