@@ -170,7 +170,7 @@ custom_data:
     update_data: true # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
     # altdemands: "MA_iee_GlobalNZ" #"MA_NH2Strategy","MA_iee_baseline" if "True" then custom .csv file must be placed in "data/custom/xxxx.csv" , If "False" the workflow works with default data.
   gas_network: false # If "True" then a custom .csv file must be placed in "resources/custom_data/pipelines.csv" , If "False" the user can choose btw "greenfield" or Model built-in datasets. Please refer to ["sector"] below.
-  export_ports: false # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
+  export_ports: true # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
   airports: false # If "True" then a custom .csv file must be placed in "data/custom/airports.csv". Data format for aiports must be in the format of the airports.csv file in the data folder.
 
 industry:
