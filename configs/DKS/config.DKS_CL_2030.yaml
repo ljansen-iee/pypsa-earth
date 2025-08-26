@@ -39,8 +39,7 @@ scenario:
   ll: ["v1.1"]
   clusters: [10]
   opts:
-  - Co2L0.54
-  - Co2L0.69
+  - Co2L0.685
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030
   # - 2050
@@ -49,7 +48,7 @@ scenario:
   - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  - "RF"
+  # - "RF"
   - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
   - "NH3v1.0+FTv1.0"

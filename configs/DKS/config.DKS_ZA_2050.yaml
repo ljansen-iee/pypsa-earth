@@ -39,8 +39,8 @@ scenario:
   ll: ["v1.3"]
   clusters: [10]
   opts: 
-  - Co2L0.04 # GECO2024, 1.5°C scenario, value for south africa
-  - Co2L0.19
+  - Co2L0.041 # GECO2024, 1.5°C scenario, value for south africa
+  # - Co2L0.19
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2050
   sopts:

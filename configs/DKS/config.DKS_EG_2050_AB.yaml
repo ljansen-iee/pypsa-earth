@@ -41,7 +41,7 @@ scenario:
   opts: 
   # - Co2L0.24, # CAT
   # - Co2L0.12 
-  - Co2L0.18 # GECO2024 1.5°C (7.03 MtCO2)
+  - Co2L0.03 # GECO2024 1.5°C (7.03 MtCO2)
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2050
   sopts:
