@@ -773,6 +773,12 @@ def define_spatial(nodes, options):
     spatial.ammonia = SimpleNamespace()
     spatial.ammonia.nodes = nodes + " NH3"
 
+    # methanol
+
+    spatial.methanol = SimpleNamespace()
+    spatial.methanol.nodes = nodes + " methanol"
+    spatial.methanol.locations = nodes
+
     return spatial
 
 
@@ -1385,10 +1391,28 @@ def h2_hc_conversions(n, costs):
 
 def add_methanol(n, costs):
 
-    raise NotImplementedError("Methanol system not implemented yet!")
     logger.info("Add methanol")
     add_carrier_buses(n, "methanol")
 
+    # methanol production (methanolisation)
+    logger.info("Adding methanolisation process.")
+
+    n.madd(
+        "Link",
+        spatial.nodes,
+        suffix=" methanolisation",
+        bus0=spatial.nodes + " H2",
+        bus1=spatial.methanol.nodes,
+        bus2=spatial.co2.nodes,
+        p_nom_extendable=True,
+        carrier="methanolisation",
+        efficiency=costs.at["methanolisation", "efficiency"],
+        efficiency2=-costs.at["methanolisation", "efficiency"]
+        * costs.at["methanolisation", "carbondioxide-input"],
+        capital_cost=costs.at["methanolisation", "fixed"]
+        * costs.at["methanolisation", "efficiency"],
+        lifetime=costs.at["methanolisation", "lifetime"],
+    )
 
     # methanol reforming
 
@@ -1400,7 +1424,7 @@ def add_methanol(n, costs):
 
     n.madd(
         "Link",
-        spatial.h2.locations,
+        spatial.nodes,
         suffix=f" {tech}",
         bus0=spatial.methanol.nodes,
         bus1=spatial.h2.nodes,
@@ -1433,7 +1457,7 @@ def add_methanol(n, costs):
 
     n.madd(
         "Link",
-        spatial.h2.locations,
+        spatial.nodes,
         suffix=f" {tech} CC",
         bus0=spatial.methanol.nodes,
         bus1=spatial.h2.nodes,
@@ -1448,6 +1472,20 @@ def add_methanol(n, costs):
         * costs.at["methanolisation", "carbondioxide-input"],
         carrier=f"{tech} CC",
         lifetime=costs.at[tech, "lifetime"],
+    )
+
+    # methanol storage
+    logger.info("Adding methanol storage.")
+    
+    n.madd(
+        "Store",
+        spatial.methanol.nodes,
+        bus=spatial.methanol.nodes,
+        e_nom_extendable=True,
+        e_cyclic=True,
+        carrier="methanol store",
+        capital_cost=costs.at["methanol storage", "fixed"] if "methanol storage" in costs.index else 0,
+        lifetime=costs.at["methanol storage", "lifetime"] if "methanol storage" in costs.index else 25,
     )
 
 
@@ -1624,11 +1662,29 @@ def add_shipping(n, costs):
         options["shipping_average_efficiency"] / costs.at["fuel cell", "efficiency"]
     )
 
-    # TODO add methanol, ammonia
-    # check whether item depends on investment year
+    # Get shipping fuel shares based on investment year
     shipping_hydrogen_share = get(
         options["shipping_hydrogen_share"], demand_sc + "_" + str(investment_year)
     )
+    
+    shipping_ammonia_share = get(
+        options["shipping_ammonia_share"], demand_sc + "_" + str(investment_year)
+    )
+    
+    shipping_methanol_share = get(
+        options["shipping_methanol_share"], demand_sc + "_" + str(investment_year)
+    )
+    
+    shipping_oil_share = get(
+        options["shipping_oil_share"], demand_sc + "_" + str(investment_year)
+    )
+
+    # Verify total shares
+    total_share = shipping_hydrogen_share + shipping_ammonia_share + shipping_methanol_share + shipping_oil_share
+    if abs(total_share - 1.0) > 0.01:
+        logger.warning(
+            f"Total shipping shares sum up to {total_share:.2%}, corresponding to increased or decreased demand assumptions."
+        )
 
     ports = locate_bus(
         ports,
@@ -1695,10 +1751,77 @@ def add_shipping(n, costs):
             p_set=ports["p_set"],
         )
 
-    if shipping_hydrogen_share < 1:
-        shipping_oil_share = 1 - shipping_hydrogen_share
+    # Add ammonia shipping loads
+    if shipping_ammonia_share > 0:
+        # Calculate ammonia shipping demand based on share
+        ports_ammonia = ports.copy()
+        ports_ammonia["p_set"] = ports["fraction"].apply(
+            lambda frac: shipping_ammonia_share 
+            * frac 
+            * navigation_demand 
+            * 1e6 
+            / 8760
+        )
+        
+        n.madd(
+            "Load",
+            spatial.nodes,
+            suffix=" NH3 for shipping",
+            bus=spatial.ammonia.nodes,
+            carrier="NH3 for shipping",
+            p_set=ports_ammonia["p_set"],
+        )
 
-        ports["p_set"] = ports["fraction"].apply(
+    # Add methanol shipping loads
+    if shipping_methanol_share > 0:
+        # Calculate methanol shipping demand based on share
+        ports_methanol = ports.copy()
+        ports_methanol["p_set"] = ports["fraction"].apply(
+            lambda frac: shipping_methanol_share 
+            * frac 
+            * navigation_demand 
+            * 1e6 
+            / 8760
+        )
+        
+        # Ensure methanol buses exist
+        if "methanol" not in n.buses.carrier.unique():
+            raise ValueError("Methanol buses are not defined in the network.")
+
+        # Add methanol shipping bus for regional demand
+        shipping_methanol_bus = spatial.nodes + " shipping methanol"
+        n.madd(
+            "Bus",
+            shipping_methanol_bus,
+            location=spatial.nodes,
+            carrier="shipping methanol",
+        )
+        
+        n.madd(
+            "Load",
+            shipping_methanol_bus,
+            bus=shipping_methanol_bus,
+            carrier="shipping methanol",
+            p_set=ports_methanol["p_set"],
+        )
+        
+        # Link methanol production to shipping demand with CO2 emissions
+        n.madd(
+            "Link",
+            shipping_methanol_bus,
+            bus0=spatial.methanol.nodes,
+            bus1=shipping_methanol_bus,
+            bus2="co2 atmosphere",
+            carrier="shipping methanol",
+            p_nom_extendable=True,
+            efficiency=1.0,
+            efficiency2=costs.at["methanol", "CO2 intensity"] if "methanol" in costs.index else 0,
+        )
+
+    # Add oil shipping loads
+    if shipping_oil_share > 0:
+        ports_oil = ports.copy()
+        ports_oil["p_set"] = ports["fraction"].apply(
             lambda frac: shipping_oil_share * frac * navigation_demand * 1e6 / 8760
         )
 
@@ -1708,11 +1831,11 @@ def add_shipping(n, costs):
             suffix=" shipping oil",
             bus=spatial.oil.nodes,
             carrier="shipping oil",
-            p_set=ports["p_set"],
+            p_set=ports_oil["p_set"],
         )
 
         if snakemake.params.sector_options["international_bunkers"]:
-            co2 = ports["p_set"].sum() * costs.at["oil", "CO2 intensity"]
+            co2 = ports_oil["p_set"].sum() * costs.at["oil", "CO2 intensity"]
         else:
             domestic_to_total = energy_totals["total domestic navigation"] / (
                 energy_totals["total domestic navigation"]
@@ -1720,7 +1843,7 @@ def add_shipping(n, costs):
             )
 
             co2 = (
-                ports["p_set"].sum()
+                ports_oil["p_set"].sum()
                 * domestic_to_total
                 * costs.at["oil", "CO2 intensity"]
             ).sum()

@@ -282,12 +282,27 @@ sector:
   # Share of hydrogen or hydrogen-equivalents of ammonia shipping. Might depend on country and routes.
   # Fischer-tropsch based shipping e-fuel share is result of optimisation and co2limit. Co2L must consider international shipping emissions. --> to be discussed.
   shipping_hydrogen_share: #1.0
-    RF_2030: 0.02
-    EL_2030: 0.05
-    RF_2035: 0.05
-    EL_2035: 0.10
-    RF_2050: 0.25
-    EL_2050: 0.35
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2035: 0.0
+    EL_2035: 0.0
+    RF_2050: 0.0
+    EL_2050: 0.0
+  shipping_ammonia_share: #1.0
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2050: 0.39
+    EL_2050: 0.39
+  shipping_methanol_share: #1.0
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2050: 0.0
+    EL_2050: 0.0
+  shipping_oil_share: #1.0
+    RF_2030: 1.0
+    EL_2030: 1.0
+    RF_2050: 0.61
+    EL_2050: 0.61
 
   #gadm_level: 1
   h2_cavern: true

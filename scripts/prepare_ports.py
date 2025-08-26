@@ -10,7 +10,7 @@ from pathlib import Path
 import country_converter as coco
 import numpy as np
 import pandas as pd
-from _helpers import BASE_DIR
+from _helpers import BASE_DIR, read_csv_nafix, to_csv_nafix
 
 # from _helpers import configure_logging
 
@@ -146,3 +146,18 @@ if __name__ == "__main__":
         filter_ports(ports).to_csv(
             snakemake.output[1], sep=",", encoding="utf-8", header="true"
         )
+
+    # custom_export_path = Path(BASE_DIR).joinpath(
+    #         "data", "custom", "export_ports.csv"
+    #     )
+    # custom_export_ports = read_csv_nafix(custom_export_path, index_col=0)[["country","fraction","y","x"]]
+
+    # export_ports_old = filter_ports(ports)[["name","country","fraction","y","x"]].set_index("name")
+    # export_ports_old = export_ports_old.query("country in ['CL','EG','MA','ZA']")
+
+    # ports2 = ports[["name","country","fraction","y","x"]].query("country in ['CL','EG','MA','ZA']").set_index("name").sort_values("country")
+
+    # export_ports = pd.concat([export_ports_old, custom_export_ports, ports2])
+
+    # export_ports = export_ports.sort_values("country")
+    # to_csv_nafix(export_ports, snakemake.output[1])

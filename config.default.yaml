@@ -498,6 +498,7 @@ custom_data:
   industry_totals: false # total industry energy and feedstock demands by country
   industry_database: false
   transport_demand: false # Set to true if share of ev or fcev are defined via custom energy_totals
+  transport_shipping_demand: false
   water_costs: false
   h2_underground: false
   add_existing: false
@@ -694,19 +695,29 @@ sector:
   shipping_average_efficiency: 0.4 #For conversion of fuel oil to propulsion in 2011
 
   shipping_hydrogen_share: #1.0
-    BU_2030: 0.00
     AP_2030: 0.00
     NZ_2030: 0.10
-    DF_2030: 0.05
-    AB_2030: 0.05
-    BU_2050: 0.00
     AP_2050: 0.25
     NZ_2050: 0.36
-    DF_2050: 0.12
-
+  shipping_ammonia_share: #1.0
+    AP_2030: 0.00
+    NZ_2030: 0.00
+    AP_2050: 0.00
+    NZ_2050: 0.00
+  shipping_methanol_share: #1.0
+    AP_2030: 0.00
+    NZ_2030: 0.00
+    AP_2050: 0.00
+    NZ_2050: 0.00
+  shipping_oil_share: #1.0
+    AP_2030: 1.00
+    NZ_2030: 0.90
+    AP_2050: 0.75
+    NZ_2050: 0.64
   h2_cavern: true
   marginal_cost_storage: 0
   methanation: true
+  methanol: true
   helmeth: true
   dac: true
   SMR: true
