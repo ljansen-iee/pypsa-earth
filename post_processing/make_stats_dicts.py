@@ -1,4 +1,6 @@
 
+import logging
+logger = logging.getLogger(__name__)
 from pathlib import Path
 import yaml
 import pandas as pd
@@ -14,6 +16,7 @@ from plot_helpers import (
     collect_files_from_directories,
     init_stats_dict, 
     save_stats_dict,
+    to_csv_nafix
 )
 
 chdir_to_parent_dir()
@@ -234,21 +237,21 @@ for nc_files_idx in nc_files.index:
                 value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
                 load_avg_marginal_price.at[nc_files_idx, bus] = value
             elif bus_carrier + " export" in n.generators_t.p.columns.unique():
-                print("No exogenous load for ", bus_carrier, " export bus found")
-                print("Marginal prices are impacted by endogenous export and export prices!")
+                logger.warning(f"No exogenous load for {bus_carrier} export bus found")
+                logger.warning(f"Marginal prices are impacted by endogenous export and export prices!")
                 demand = -1*n.generators_t.p[bus_carrier + " export"]
                 value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
                 load_avg_marginal_price.at[nc_files_idx, bus] = value
             else:
-                print("No exogenous or endogenous load found for ", 
-                      bus_carrier, 
-                      " export bus in ", nc_files_idx)
+                logger.warning(f"No exogenous or endogenous load found for {bus_carrier} export bus in {nc_files_idx}")
 
 
 # %%
 save_stats_dict(balance_dict, "balance_dict", sdir)
 save_stats_dict(optimal_capacity_dict, "optimal_capacity_dict", sdir)
 save_stats_dict(costs_dict, "costs_dict", sdir)
-save_stats_dict(time_avg_marginal_price, "time_avg_marginal_price", sdir)
-save_stats_dict(load_avg_marginal_price, "load_avg_marginal_price", sdir)
+to_csv_nafix(time_avg_marginal_price, sdir / "time_avg_marginal_price.csv")
+print(f"Saved time_avg_marginal_price to {sdir / 'time_avg_marginal_price.csv'}")
+to_csv_nafix(load_avg_marginal_price, sdir / "load_avg_marginal_price.csv")
+print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}")
 # %%

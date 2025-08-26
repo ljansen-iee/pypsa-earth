@@ -66,18 +66,18 @@ def to_csv_nafix(df, path, **kwargs):
         with open(path, "w") as fp:
             pass
 
-def save_stats_dict(stats_dict, stats_name, summary_dir):
+def save_stats_dict(stats_dict, stats_name, path_dir):
     for key, df in stats_dict.items():
-        to_csv_nafix(df, summary_dir / f"{stats_name}_{key}.csv")
-        print(f"Saved {key} to {summary_dir / f'{stats_name}_{key}.csv'}")
+        to_csv_nafix(df, path_dir / f"{stats_name}_{key}.csv")
+        print(f"Saved {key} to {path_dir / f'{stats_name}_{key}.csv'}")
 
-def read_stats_dict(stats_name, summary_dir, keys=[]):
+def read_stats_dict(stats_name, path_dir, keys=[]):
     stats_dict = {}
     index_cols = ["run_name_prefix", "run_name", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "eopts"]
     for key in keys:
-        stats_dict[key] = read_csv_nafix(summary_dir / f"{stats_name}_{key}.csv", index_col=index_cols)
+        stats_dict[key] = read_csv_nafix(path_dir / f"{stats_name}_{key}.csv", index_col=index_cols)
         stats_dict[key].index.set_names(index_cols, inplace=True)
-        print(f"Imported {key} from {summary_dir / f'{stats_name}_{key}.csv'}")
+        print(f"Imported {key} from {path_dir / f'{stats_name}_{key}.csv'}")
     return stats_dict
 
 
