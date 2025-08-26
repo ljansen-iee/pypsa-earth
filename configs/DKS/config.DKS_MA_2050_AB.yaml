@@ -131,9 +131,9 @@ export:
     NH3: 0
     FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
-    H2: 11.4
-    NH3: 75.7
-    FT: 8.7 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    H2: 114.0
+    NH3: 0.0
+    FT: 0.0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
     # - 46.67 # 1.4 Mt (5% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 93.33 # 2.8 Mt (8% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
     # - 125 # 3.75 Mt (5% of anticipated trade market of central scenario for 2040 of EG H2 strategy) 
