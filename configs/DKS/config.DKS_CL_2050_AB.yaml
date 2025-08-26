@@ -235,8 +235,14 @@ sector:
 
   biomass_transport: true # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
-  solid_biomass_potential: 86.9 # 200 #47.6 # TWh/a, Potential of whole modelled area 
-  # TODO per country: conservative assumptions is to take 97% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
+  solid_biomass_potential: 86.9 # TWh/a, Potential of whole modelled area
+  biomass_to_liquid: true
+  biomass_to_liquid_cc: false
+  # electrobiofuels: false
+  # biosng: false
+  # biosng_cc: false
+  # bioH2: false
+  
   biogas_potential: 1.4 # TWh/a, Potential of whole modelled area 
   # TODO per country: conservative assumptions is to take 3% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
 
@@ -289,7 +295,7 @@ sector:
   helmeth: false
   dac: true
   SMR: true
-  SMR CC: true
+  SMR CC: false
   cc_fraction: 0.9
   cc: true
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 

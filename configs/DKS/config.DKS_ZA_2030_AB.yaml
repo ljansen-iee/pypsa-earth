@@ -82,7 +82,7 @@ electricity:
     Store: [battery, H2]
     Link: [] # H2 pipeline
 
-  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
+  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') and not Name.str.contains('Komati|Hendrina|Grootvlei|Camden', case=False) # coal phase out plan ESKOM: https://wires.onlinelibrary.wiley.com/doi/full/10.1002/wene.70009
   custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
 lines:
@@ -236,8 +236,14 @@ sector:
 
   biomass_transport: true # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
-  solid_biomass_potential: 83.9 # TWh/a, calculated by calc_biomass_potential.py
-  # TODO per country: conservative assumptions is to take 97% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
+  solid_biomass_potential: 83.9 # TWh/a, Potential of whole modelled area
+  biomass_to_liquid: true
+  biomass_to_liquid_cc: false
+  # electrobiofuels: false
+  # biosng: false
+  # biosng_cc: false
+  # bioH2: false
+  
   biogas_potential: 1.4 # TWh/a, Potential of whole modelled area 
   # TODO per country: conservative assumptions is to take 3% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
 
@@ -290,7 +296,7 @@ sector:
   helmeth: false
   dac: true
   SMR: true
-  SMR CC: true
+  SMR CC: false
   cc_fraction: 0.9
   cc: true
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 
