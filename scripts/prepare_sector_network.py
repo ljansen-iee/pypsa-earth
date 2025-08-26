@@ -979,6 +979,50 @@ def add_biomass(n, costs):
                 lifetime=costs.at[key, "lifetime"],
             )
 
+    # Solid biomass to liquid fuel
+    if options["biomass_to_liquid"]:
+        add_carrier_buses(n, "oil")
+        n.madd(
+            "Link",
+            spatial.biomass.nodes,
+            suffix=" biomass to liquid",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.oil.nodes,
+            bus2="co2 atmosphere",
+            carrier="biomass to liquid",
+            lifetime=costs.at["BtL", "lifetime"],
+            efficiency=costs.at["BtL", "efficiency"],
+            efficiency2=-costs.at["solid biomass", "CO2 intensity"]
+            + costs.at["BtL", "CO2 stored"],
+            p_nom_extendable=True,
+            capital_cost=costs.at["BtL", "fixed"] * costs.at["BtL", "efficiency"],
+            marginal_cost=costs.at["BtL", "VOM"] * costs.at["BtL", "efficiency"],
+        )
+
+    # Solid biomass to liquid fuel with carbon capture
+    if options["biomass_to_liquid_cc"]:
+        # Assuming that acid gas removal (incl. CO2) from syngas i performed with Rectisol
+        # process (Methanol) and that electricity demand for this is included in the base process
+        n.madd(
+            "Link",
+            spatial.biomass.nodes,
+            suffix=" biomass to liquid CC",
+            bus0=spatial.biomass.nodes,
+            bus1=spatial.oil.nodes,
+            bus2="co2 atmosphere",
+            bus3=spatial.co2.nodes,
+            carrier="biomass to liquid CC",
+            lifetime=costs.at["BtL", "lifetime"],
+            efficiency=costs.at["BtL", "efficiency"],
+            efficiency2=-costs.at["solid biomass", "CO2 intensity"]
+            + costs.at["BtL", "CO2 stored"] * (1 - costs.at["BtL", "capture rate"]),
+            efficiency3=costs.at["BtL", "CO2 stored"] * costs.at["BtL", "capture rate"],
+            p_nom_extendable=True,
+            capital_cost=costs.at["BtL", "fixed"] * costs.at["BtL", "efficiency"]
+            + costs.at["biomass CHP capture", "fixed"] * costs.at["BtL", "CO2 stored"],
+            marginal_cost=costs.at["BtL", "VOM"] * costs.at["BtL", "efficiency"],
+        )    
+
 
 def add_co2(n, costs, co2_network):
     "add carbon carrier, it's networks and storage units"
