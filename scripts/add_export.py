@@ -476,13 +476,13 @@ if __name__ == "__main__":
             "add_export",
             simpl="",
             clusters="10",
-            ll="copt",
-            opts="Co2L0.24",
+            ll="v1.3",
+            opts="Co2L0.0",
             planning_horizons="2050",
-            sopts="144H",
-            discountrate="0.082",
+            sopts="1H",
+            discountrate="0.071",
             demand="EL",
-            eopts="H2v1.01+NH3v1.01+FTv1.01", #"H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0",
+            eopts="NH3v1.0+FTv1.0",
             # configfile="test/config.test1.yaml",
         )
 
@@ -541,4 +541,3 @@ if __name__ == "__main__":
     n.export_to_netcdf(snakemake.output[0])
 
     logger.info("Network successfully exported")
-    

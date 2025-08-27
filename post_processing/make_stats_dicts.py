@@ -25,26 +25,26 @@ chdir_to_parent_dir()
 
 run_name_prefix = "DKS" # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_CL"
+sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_202508"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
     "DKS_CL_2030",
     "DKS_CL_2050",
-    # "DKS_EG_2030",
-    # "DKS_EG_2050",
-    # "DKS_MA_2030",
-    # "DKS_MA_2050",
-    # "DKS_ZA_2030",
-    # "DKS_ZA_2050",
-    # "DKS_CL_2030_AB",
-    # "DKS_CL_2050_AB",
-    # "DKS_EG_2030_AB",
-    # "DKS_EG_2050_AB",
-    # "DKS_MA_2030_AB",
-    # "DKS_MA_2050_AB",
-    # "DKS_ZA_2030_AB",
-    # "DKS_ZA_2050_AB",
+    "DKS_EG_2030",
+    "DKS_EG_2050",
+    "DKS_MA_2030",
+    "DKS_MA_2050",
+    "DKS_ZA_2030",
+    "DKS_ZA_2050",
+    "DKS_CL_2030_AB",
+    "DKS_CL_2050_AB",
+    "DKS_EG_2030_AB",
+    "DKS_EG_2050_AB",
+    "DKS_MA_2030_AB",
+    "DKS_MA_2050_AB",
+    "DKS_ZA_2030_AB",
+    "DKS_ZA_2050_AB",
 ]   
 
 #%%

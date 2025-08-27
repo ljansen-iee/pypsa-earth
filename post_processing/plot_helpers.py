@@ -235,6 +235,8 @@ def prepare_dataframe(
     # Drop zero values if requested
     if drop_zero and 'value' in df_grouped.columns:
         df_grouped = df_grouped[abs(df_grouped["value"]) > zero_threshold]
+
+    df_grouped = df_grouped[df_grouped["variable"]!= "load shedding"]
     
     return df_grouped
 

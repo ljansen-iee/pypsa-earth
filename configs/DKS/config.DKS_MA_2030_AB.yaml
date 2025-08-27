@@ -51,8 +51,8 @@ scenario:
   - "RF"
   # - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
-  - "H2v1.0+NH3v1.0+FTv1.0"
-  - "H2v0.5+NH3v0.5+FTv0.5"
+  - "H2v1.0"
+  - "H2v0.5"
   - ""
 
 augmented_line_connection:
