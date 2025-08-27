@@ -238,7 +238,7 @@ sector:
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
   solid_biomass_potential: 38.1 # TWh/a, Potential of whole modelled area
   biomass_to_liquid: true
-  biomass_to_liquid_cc: false
+  biomass_to_liquid_cc: true
   # electrobiofuels: false
   # biosng: false
   # biosng_cc: false
