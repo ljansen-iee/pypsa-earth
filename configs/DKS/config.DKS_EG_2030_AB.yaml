@@ -39,7 +39,7 @@ scenario:
   ll: ["v1.1"]
   clusters: [10]
   opts: 
-  - Co2L1.033
+  - Co2L0.982
   # - Co2L0.90
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030

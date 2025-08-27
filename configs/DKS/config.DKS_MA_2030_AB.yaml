@@ -39,7 +39,7 @@ scenario:
   ll: ["v1.1"]
   clusters: [10]
   opts: 
-  - Co2L0.836 # GECO2024, 1.5°C scenario, value for morocco and tunisia
+  - Co2L1.045 # GECO2024, 1.5°C scenario, value for morocco and tunisia
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2030
   # - 2050
