@@ -3,7 +3,9 @@ import plotly.io as pio
 import pandas as pd
 from pathlib import Path
 import os
-
+from typing import Callable, Any, Hashable, List, Optional, Union, Tuple
+import pandas as pd
+import numpy as np
 
 NA_VALUES = ["NULL", "", "N/A", "NAN", "NaN", "nan", "Nan", "n/a", "null"]
 
@@ -109,11 +111,6 @@ def drop_index_levels(df, to_drop=[]):
     return df
 
 
-
-from typing import Callable, Any, Hashable, List, Optional, Union
-import pandas as pd
-import numpy as np
-
 def prepare_dataframe(
     stats_df: pd.DataFrame,
     idx_group: Any,
@@ -218,6 +215,10 @@ def prepare_dataframe(
     if missing_groupby_vars:
         raise ValueError(f"Missing required groupby_vars in melted DataFrame: {missing_groupby_vars}")
     
+    unexpected_value_columns = set(df_melted.columns) - set(groupby_vars) - {"value"}
+    if unexpected_value_columns:
+        raise ValueError(f"Unexpected value columns found in melted DataFrame: {unexpected_value_columns}.")
+
     # Group by and sum
     try:
         df_grouped = df_melted.groupby(groupby_vars, as_index=False).sum(numeric_only=True)
@@ -228,9 +229,10 @@ def prepare_dataframe(
     if 'value' in df_grouped.columns:
         df_grouped['value'] = df_grouped['value'].round(round_decimals)
     else:
-        # Round all numeric columns
-        numeric_cols = df_grouped.select_dtypes(include=[np.number]).columns
-        df_grouped[numeric_cols] = df_grouped[numeric_cols].round(round_decimals)
+        raise ValueError(f"Something went wrong. Column 'value' not found after groupby.")
+        # # Round all numeric columns
+        # numeric_cols = df_grouped.select_dtypes(include=[np.number]).columns
+        # df_grouped[numeric_cols] = df_grouped[numeric_cols].round(round_decimals)
     
     # Drop zero values if requested
     if drop_zero and 'value' in df_grouped.columns:
@@ -240,9 +242,81 @@ def prepare_dataframe(
     
     return df_grouped
 
+
+def get_supply_demand_from_balance(
+    stats_df: pd.DataFrame,
+    threshold: float = 0.01,
+    round_decimals: int = 1,
+    id_vars: Optional[List[str]] = None,
+    groupby_vars: Optional[List[str]] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Get supply and demand from balance with validation and flexible groupby options.
+    
+    Parameters
+    ----------
+    stats_df : pd.DataFrame
+        Input statistics DataFrame with 'value' column
+    threshold : float, default 0.01
+        Threshold for separating supply (>=threshold) from demand (<=-threshold)
+        and for filtering out small values when drop_below_threshold is True
+    round_decimals : int, default 1
+        Number of decimal places to round to
+    id_vars : List[str], optional
+        List of identifier variables for grouping. If None, uses default.
+    groupby_vars : List[str], optional
+        List of variables for detailed grouping. If None, uses id_vars + ["variable"].
+        
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        (supply_df, supply_sum_df, demand_df, demand_sum_df)
+        
+    Raises
+    ------
+    ValueError
+        If required columns are missing or if DataFrame is empty
+    """
+    if 'value' not in stats_df.columns:
+        raise ValueError("DataFrame must contain 'value' column")
+    
+    if id_vars is None:
+        id_vars = ["run_name_prefix", "run_name", "scen", "year", "country"]
+    
+    if groupby_vars is None:
+        groupby_vars = id_vars + ["variable"]
+    
+    missing_id_vars = set(id_vars) - set(stats_df.columns)
+    if missing_id_vars:
+        raise ValueError(f"Missing required id_vars in DataFrame: {missing_id_vars}")
+    
+    missing_groupby_vars = set(groupby_vars) - set(stats_df.columns)
+    if missing_groupby_vars:
+        raise ValueError(f"Missing required groupby_vars in DataFrame: {missing_groupby_vars}")
+    
+    expected_columns = set(groupby_vars) | {"value"}
+    unexpected_value_columns = set(stats_df.columns) - expected_columns
+    if unexpected_value_columns:
+        raise ValueError(f"Unexpected value columns found in melted DataFrame: {unexpected_value_columns}.")
+
+    supply_df = stats_df[stats_df["value"] >= threshold].copy()
+    supply_df = supply_df.groupby(groupby_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
+    supply_sum_df = supply_df.groupby(id_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
+
+    demand_df = stats_df[abs(stats_df["value"]) >= threshold].copy()
+    # demand_df = stats_df[stats_df["value"] <= -threshold].copy()
+    demand_df["value"] *= -1  # Convert to positive values
+    demand_df = demand_df.groupby(groupby_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
+    demand_sum_df = demand_df.groupby(id_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
+
+    return supply_df, supply_sum_df, demand_df, demand_sum_df
+
+
 def update_layout(fig):
-    fig.update_traces(textposition='inside', textangle=0)
+    # Only apply textangle and textposition to bar traces to avoid conflicts with scatter traces
+    fig.update_traces(textposition='inside', textangle=0, selector=dict(type='bar'))
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    fig.update_xaxes(tickangle=25)
     # fig.update_yaxes(matches=None)
     # # Add ticks and show y-axis scale (numbers) for all y-axes in subplot
     # fig.update_yaxes(
@@ -258,21 +332,174 @@ def update_layout(fig):
     return
 
 
-
-def get_supply_demand_from_balance(stats_df, threshold=0.01, round=1):
+def add_totals_to_plot(fig, totals_df, **kwargs):
     """
-    Get supply and demand from balance.
+    Add totals as invisible text traces above stacked bars for plots with positive values only.
+    
+    Parameters:
+    -----------
+    fig : plotly.graph_objects.Figure
+        The plotly figure to add totals to
+    totals_df : pandas.DataFrame
+        DataFrame containing totals with columns: ['scen', 'year', 'value'] (and optionally others)
+    **kwargs : dict
+        Optional formatting parameters:
+        - textfont_size : int, default 16
+        - textfont_color : str, default 'black'  
+        - y_offset : float, default 1 (amount to offset text above bars)
+        - text_format : str, default '.0f' (format string for values)
+        - value_column : str, default 'value' (name of column containing totals)
+        - y_margin : float, default 0.1 (fraction of max value to add as top margin)
+    
+    Returns:
+    --------
+    fig : plotly.graph_objects.Figure
+        The modified figure with totals added
     """
-    supply_df = stats_df[stats_df["value"]>=threshold].copy()
-    supply_df = supply_df.groupby(["run_name_prefix", "run_name", "scen","year","country", "variable"], as_index=False).sum().round(round)
-    supply_sum_df = supply_df.groupby(["run_name_prefix", "run_name", "scen","year","country"]).sum(numeric_only=True).round(round)
+    # Extract kwargs with defaults
+    textfont_size = kwargs.get('textfont_size', 14)
+    textfont_color = kwargs.get('textfont_color', 'black')
+    y_offset = kwargs.get('y_offset', 1)
+    text_format = kwargs.get('text_format', '.0f')
+    value_column = kwargs.get('value_column', 'value')
+    
+    # Prepare totals data for plotting
+    totals_data = totals_df.reset_index()
+    if value_column != 'total':
+        totals_data = totals_data.rename(columns={value_column: 'total'})
+    
+    # Add totals trace for each year subplot
+    for year in totals_data['year'].unique():
+        year_data = totals_data[totals_data['year'] == year]
+        
+        # Determine which subplot this year corresponds to
+        years_list = sorted(totals_data['year'].unique())
+        col_num = years_list.index(year) + 1
+        
+        # Format the text values
+        text_values = [f"{val:{text_format}}" for val in year_data['total']]
+        
+        fig.add_trace(
+            go.Scatter(
+                x=year_data['scen'],
+                y=year_data['total'] + y_offset,
+                mode='text',
+                text=text_values,
+                textposition='top center',
+                textfont=dict(size=textfont_size, color=textfont_color, weight="bold"),
+                showlegend=False,
+                hoverinfo='skip',
+                xaxis=f'x{col_num}' if col_num > 1 else 'x',
+                yaxis=f'y{col_num}' if col_num > 1 else 'y'
+            )
+        )
+    
+    return fig
 
-    demand_df = stats_df[stats_df["value"]<=-threshold].copy()
-    demand_df["value"] *= -1 
-    demand_df = demand_df.groupby(["run_name_prefix", "run_name", "scen","year","country", "variable"], as_index=False).sum().round(round)
-    demand_sum_df = demand_df.groupby(["run_name_prefix", "run_name", "scen","year","country"]).sum(numeric_only=True).round(round)
 
-    return supply_df, supply_sum_df, demand_df, demand_sum_df
+def add_balance_totals_to_plot(fig, supply_sum_df, demand_sum_df, **kwargs):
+    """
+    Add totals as invisible text traces for plots with both positive and negative values (barmode="relative").
+    Shows supply totals above positive bars and demand totals below negative bars.
+    
+    Parameters:
+    -----------
+    fig : plotly.graph_objects.Figure
+        The plotly figure to add totals to
+    supply_sum_df : pandas.DataFrame
+        DataFrame containing supply totals with columns: ['scen', 'year', 'value'] (and optionally others)
+    demand_sum_df : pandas.DataFrame
+        DataFrame containing demand totals with columns: ['scen', 'year', 'value'] (and optionally others)
+    **kwargs : dict
+        Optional formatting parameters:
+        - textfont_size : int, default 14
+        - textfont_color : str, default 'black'  
+        - y_offset : float, default 1 (amount to offset text from bars)
+        - text_format : str, default '.0f' (format string for values)
+        - value_column : str, default 'value' (name of column containing totals)
+        - supply_label : str, default '' (optional prefix label for supply totals)
+        - demand_label : str, default '' (optional prefix label for demand totals)
+    
+    Returns:
+    --------
+    fig : plotly.graph_objects.Figure
+        The modified figure with supply and demand totals added
+    """
+    # Extract kwargs with defaults
+    textfont_size = kwargs.get('textfont_size', 14)
+    textfont_color = kwargs.get('textfont_color', 'black')
+    y_offset = kwargs.get('y_offset', 1)
+    text_format = kwargs.get('text_format', '.0f')
+    value_column = kwargs.get('value_column', 'value')
+    supply_label = kwargs.get('supply_label', '')
+    demand_label = kwargs.get('demand_label', '')
+    
+    # Prepare supply totals data
+    supply_data = supply_sum_df.reset_index()
+    if value_column != 'total':
+        supply_data = supply_data.rename(columns={value_column: 'total'})
+    
+    # Prepare demand totals data
+    demand_data = demand_sum_df.reset_index()
+    if value_column != 'total':
+        demand_data = demand_data.rename(columns={value_column: 'total'})
+    
+    # Add supply totals trace for each year subplot (above positive bars)
+    for year in supply_data['year'].unique():
+        year_data = supply_data[supply_data['year'] == year]
+        
+        # Determine which subplot this year corresponds to
+        years_list = sorted(supply_data['year'].unique())
+        col_num = years_list.index(year) + 1
+        
+        # Format the text values for supply (positive values above bars)
+        text_values = [f"{supply_label}{val:{text_format}}" if val > 0 else "" 
+                      for val in year_data['total']]
+        
+        fig.add_trace(
+            go.Scatter(
+                x=year_data['scen'],
+                y=year_data['total'] + y_offset,
+                mode='text',
+                text=text_values,
+                textposition='top center',
+                textfont=dict(size=textfont_size, color=textfont_color, weight="bold"),
+                showlegend=False,
+                hoverinfo='skip',
+                xaxis=f'x{col_num}' if col_num > 1 else 'x',
+                yaxis=f'y{col_num}' if col_num > 1 else 'y'
+            )
+        )
+    
+    # Add demand totals trace for each year subplot (below negative bars)
+    for year in demand_data['year'].unique():
+        year_data = demand_data[demand_data['year'] == year]
+        
+        # Determine which subplot this year corresponds to
+        years_list = sorted(demand_data['year'].unique())
+        col_num = years_list.index(year) + 1
+        
+        # Format the text values for demand (negative values below bars)
+        # Note: demand values are typically negative, so we show them below
+        text_values = [f"{demand_label}{abs(val):{text_format}}" if val < 0 else "" 
+                      for val in year_data['total']]
+        
+        fig.add_trace(
+            go.Scatter(
+                x=year_data['scen'],
+                y=year_data['total'] - y_offset,
+                mode='text',
+                text=text_values,
+                textposition='bottom center',
+                textfont=dict(size=textfont_size, color=textfont_color, weight="bold"),
+                showlegend=False,
+                hoverinfo='skip',
+                xaxis=f'x{col_num}' if col_num > 1 else 'x',
+                yaxis=f'y{col_num}' if col_num > 1 else 'y'
+            )
+        )
+    
+    return fig
 
 
 ##### Renaming and consolidation #####
@@ -380,7 +607,7 @@ def rename_techs_study(tech):
     elif "offshore wind" in tech:
         return "offshore wind"
     elif "SMR" in tech:
-        return tech.replace("SMR", "steam methane reforming")
+        return tech.replace("SMR", "steam reforming")
     elif "DAC" in tech:
         return "direct air capture"
     elif "CC" in tech or "sequestration" in tech:
@@ -519,8 +746,8 @@ def rename_h2(tech):
         return "Power-to-liquid"
     elif "Haber-Bosch" in tech:
        return "Power-to-NH3"
-    # elif tech == 'H2 export':
-    #     return "Power-to-NH3"
+    elif tech == 'SMR':
+        return "Steam reforming"
     elif tech == 'Sabatier':
         return "Power-to-CH4"
     elif "shipping" in tech:
@@ -528,7 +755,9 @@ def rename_h2(tech):
     elif "industry" in tech:
         return "Industry"
     elif "land transport" in tech:
-        return "Land transport"    
+        return "Land transport"   
+    elif "H2 Fuel Cell" in tech:
+        return "H2-to-power"
     elif tech == "H2":
         return "H2 export"
     else:
@@ -602,9 +831,9 @@ my_template = go.layout.Template(
         legend=dict(bgcolor='rgba(0,0,0,0)'), #"#ffffff"
         title={'y': 0.95, 'x': .06},
         font_size=14,
-        uniformtext_minsize=11, 
+        uniformtext_minsize=10, 
         uniformtext_mode='hide',
-        margin=dict(l=100, r=100, t=80, b=50),
+        margin=dict(l=0, r=50, t=50, b=50),
         # margin=dict(l=15, r=0, t=80, b=0),
 ))
 
@@ -619,7 +848,15 @@ def nice_title(title, subtitle):
 def save_plotly_fig(df, fig, output_dir, fig_name):
     output_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_dir/f"{fig_name}.csv", index=False)
-    fig.write_image(output_dir/f"{fig_name}.svg", engine="kaleido")
+    
+    # Extract width and height from figure layout to preserve dimensions
+    width = fig.layout.width
+    height = fig.layout.height
+    
+    fig.write_image(output_dir/f"{fig_name}.svg", 
+                   width=width, 
+                   height=height, 
+                   engine="kaleido")
 
 
 colors = {

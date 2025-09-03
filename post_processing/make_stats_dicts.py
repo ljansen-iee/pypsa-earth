@@ -25,7 +25,7 @@ chdir_to_parent_dir()
 
 run_name_prefix = "DKS" # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_202508"
+sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_202508v5"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
@@ -226,7 +226,7 @@ for nc_files_idx in nc_files.index:
 
     ##### time and load averaged marginal prices per bus_carrier in EUR/MWh
 
-    for bus_carrier in ["H2","FT","NH3"]:
+    for bus_carrier in ["H2","NH3","FT"]:
         buses = n.buses.loc[n.buses.index.str.contains(bus_carrier)]
         for bus in buses.index:
             value = n.buses_t.marginal_price[bus].mean() # NB: hourly pattern is interesting! 
@@ -247,11 +247,19 @@ for nc_files_idx in nc_files.index:
 
 
 # %%
+to_csv_nafix(nc_files, sdir / "nc_files.csv")
+
 save_stats_dict(balance_dict, "balance_dict", sdir)
 save_stats_dict(optimal_capacity_dict, "optimal_capacity_dict", sdir)
 save_stats_dict(costs_dict, "costs_dict", sdir)
+
 to_csv_nafix(time_avg_marginal_price, sdir / "time_avg_marginal_price.csv")
 print(f"Saved time_avg_marginal_price to {sdir / 'time_avg_marginal_price.csv'}")
 to_csv_nafix(load_avg_marginal_price, sdir / "load_avg_marginal_price.csv")
 print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}")
+
+
 # %%
+
+
+n.buses_t.marginal_price["CL.11_1_AC H2"].clip(upper=150).plot()

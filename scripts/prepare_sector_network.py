@@ -3542,11 +3542,12 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="Co2L0.90",
+            opts="Co2L0.885",
             planning_horizons="2030",
-            sopts="144H",
-            discountrate=0.106,
+            sopts="1H",
+            discountrate=0.071,
             demand="RF",
+            eopts="NH3v1.0+FTv1.0",
         )
     
     # Load population layout
