@@ -547,6 +547,11 @@ sector:
     set_color_shares: false
     blue_share: 0.40
     pink_share: 0.05
+    water_input: 0.6 # Pure water consumption for electrolysis in [m3/MWh_H2] (20m3/kg_H2 -> 0.6m3/MWh_H2). Activate water consumption with sector[water][enable].
+  water:
+    enable: false # Enable seawater desalination or other water treatment methods for ultra pure water supply
+    spatial_water: false # false means, water treatment is suppling to global purewater node ("Earth purewater").
+    production_technologies: ["seawater desalination"] # Currently only seawater desalination in regions with ports.
   coal:
     spatial_coal: true
     shift_to_elec: true # If true, residential and services demand of coal is shifted to electricity. If false, the final energy demand of coal is disregarded
@@ -749,6 +754,9 @@ solving:
     skip_iterations: true
     track_iterations: false
     # nhours: 10
+  
+  constraints:
+    tech_links_p_nom_minmax: true # {true, false}, Adds minimum and maximum capacity limits for links. Expects a file data/tech_links_p_nom_minmax.csv.
 
   solver:
     name: gurobi

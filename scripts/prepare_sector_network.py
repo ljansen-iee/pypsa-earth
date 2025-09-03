@@ -592,6 +592,85 @@ def add_hydrogen(n, costs):
             )
 
 
+def add_desalination(n, costs):
+    """
+    Add desalination infrastructure to the network.
+    
+    This function adds:
+    - purewater carrier and buses  
+    - Seawater carrier and buses at coastal nodes
+    - Unlimited seawater generators
+    - Desalination links converting seawater to purewater
+    - Modifies existing H2 Electrolysis links to include water consumption
+    """
+    logger.info("Adding desalination infrastructure")
+    
+    # Add purewater carrier and buses
+    n.add("Carrier", "purewater", unit="H20_m3")
+    n.madd(
+        "Bus",
+        spatial.purewater.nodes,
+        location=spatial.purewater.locations,
+        carrier="purewater",
+    )
+    
+    # Add seawater carrier and buses
+    n.add("Carrier", "seawater", unit="H20_m3") 
+    n.madd(
+        "Bus",
+        spatial.seawater.nodes,
+        location=spatial.seawater.locations,
+        carrier="seawater",
+    )
+
+    # Add unlimited seawater supply at coastal locations
+    n.madd(
+        "Generator",
+        spatial.coastal_nodes + " seawater",
+        bus=spatial.seawater.nodes,
+        p_nom_extendable=True,
+        carrier="seawater",
+        marginal_cost=0,  # Free seawater resource
+    )
+    
+    # Add desalination plants
+    production_techs = snakemake.params.sector_options["water"]["production_technologies"]
+    
+    for tech in production_techs:
+        if tech == "seawater desalination":
+            n.madd(
+                "Link",
+                spatial.coastal_nodes + " desalination",
+                bus0=spatial.seawater.nodes,
+                bus1=spatial.purewater.nodes if len(spatial.purewater.nodes) == 1 else spatial.coastal_nodes + " purewater",
+                bus2=spatial.coastal_nodes,  # Electricity consumption
+                p_nom_extendable=True,
+                carrier="seawater desalination",
+                efficiency=1.0,
+                efficiency2=-costs.at["seawater desalination", "electricity-input"],
+                capital_cost=costs.at["seawater desalination", "fixed"],
+                lifetime=costs.at["seawater desalination", "lifetime"],
+            )
+    
+    # Modify existing H2 Electrolysis links to include water consumption
+    h2_electrolysis_links = n.links.index[n.links.carrier == "H2 Electrolysis"]
+    if not h2_electrolysis_links.empty and snakemake.params.sector_options["hydrogen"]["water_input"] > 0:
+        logger.info("Adding water consumption to H2 Electrolysis links")
+        
+        # Determine target purewater bus
+        if len(spatial.purewater.nodes) == 1:
+            target_bus = spatial.purewater.nodes[0]
+        else:
+            # Map each electrolysis link to its corresponding purewater bus
+            target_bus = h2_electrolysis_links.str.replace(" H2 Electrolysis", " purewater")
+        
+        n.links.loc[h2_electrolysis_links, "bus2"] = target_bus
+        n.links.loc[h2_electrolysis_links, "efficiency2"] = (
+            -snakemake.params.sector_options["hydrogen"]["water_input"]  # m3/MWh_H2
+            * costs.at["electrolysis", "efficiency"]  # convert to water-input in m3/MWh_el
+        )
+
+
 def add_ammonia(n, costs):
     
     n.add("Carrier", "N2", unit="t_N2")
@@ -647,6 +726,62 @@ def add_ammonia(n, costs):
         capital_cost=costs.at["NH3 (l) storage tank incl. liquefaction", "fixed"],
         lifetime=costs.at["NH3 (l) storage tank incl. liquefaction", "lifetime"],
     )
+
+
+def get_coastal_nodes(nodes):
+    """
+    Identify coastal nodes for water infrastructure using ports data.
+    
+    This function uses the existing ports infrastructure to detect coastal nodes,
+    similar to the approach in add_export.py for port selection.
+    
+    Parameters
+    ----------
+    nodes : pd.Index
+        Network nodes
+        
+    Returns
+    -------
+    pd.Index
+        Coastal nodes suitable for desalination
+    """
+    try:
+        # Use ports data to identify coastal nodes
+        ports = pd.read_csv(
+            snakemake.input.export_ports,
+            index_col=None,
+            keep_default_na=False,
+        ).squeeze()
+
+        gadm_layer_id = snakemake.params.gadm_layer_id
+        countries = snakemake.params.countries
+
+        ports = locate_bus(
+            ports,
+            countries,
+            gadm_layer_id,
+            snakemake.input.shapes_path,
+            snakemake.params.alternative_clustering,
+        )
+
+        # Drop duplicated entries
+        gcol = "gadm_{}".format(gadm_layer_id)
+        ports_sel = ports.loc[~ports[gcol].duplicated(keep="first")].set_index(gcol)
+
+        # Select nodes with ports as coastal nodes
+        coastal_nodes = pd.Index(ports_sel.index).intersection(nodes)
+        
+        if coastal_nodes.empty:
+            logger.warning("No coastal nodes identified from ports data. Using all nodes as fallback.")
+            coastal_nodes = pd.Index(nodes)
+        else:
+            logger.info(f"Identified {len(coastal_nodes)} coastal nodes from ports data: {list(coastal_nodes)}")
+            
+        return coastal_nodes
+        
+    except Exception as e:
+        logger.warning(f"Could not identify coastal nodes from ports data: {e}. Using all nodes as fallback.")
+        return pd.Index(nodes)
 
 
 def define_spatial(nodes, options):
@@ -778,6 +913,34 @@ def define_spatial(nodes, options):
     spatial.methanol = SimpleNamespace()
     spatial.methanol.nodes = nodes + " methanol"
     spatial.methanol.locations = nodes
+
+    # water infrastructure
+    if options["water"]["enable"]:
+        spatial.water = SimpleNamespace()
+        
+        if options["water"]["spatial_water"]:
+            # Spatially distributed water infrastructure
+            spatial.purewater = SimpleNamespace()
+            spatial.purewater.nodes = nodes + " purewater"
+            spatial.purewater.locations = nodes
+            
+            spatial.seawater = SimpleNamespace() 
+            # Get coastal nodes from ports data
+            coastal_nodes = get_coastal_nodes(nodes)
+            spatial.seawater.nodes = coastal_nodes + " seawater"
+            spatial.seawater.locations = coastal_nodes
+            spatial.coastal_nodes = coastal_nodes
+        else:
+            # Global water infrastructure (default)
+            spatial.purewater = SimpleNamespace()
+            spatial.purewater.nodes = ["Earth purewater"]
+            spatial.purewater.locations = ["Earth"]
+            
+            spatial.seawater = SimpleNamespace()
+            coastal_nodes = get_coastal_nodes(nodes)
+            spatial.seawater.nodes = coastal_nodes + " seawater" 
+            spatial.seawater.locations = coastal_nodes
+            spatial.coastal_nodes = coastal_nodes
 
     return spatial
 
@@ -3518,6 +3681,10 @@ if __name__ == "__main__":
     remove_carrier_related_components(n, carriers_to_drop=["H2", "battery", "biomass"])
 
     add_hydrogen(n, costs)
+
+    # Add water infrastructure if enabled
+    if options["water"]["enable"]:
+        add_desalination(n, costs)
 
     if options["ammonia"]:
         add_ammonia(n, costs)
