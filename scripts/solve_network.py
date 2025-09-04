@@ -86,7 +86,13 @@ import numpy as np
 import pandas as pd
 import pypsa
 import xarray as xr
-from _helpers import configure_logging, create_logger, override_component_attrs
+from _helpers import (
+    BASE_DIR,
+    configure_logging, 
+    create_logger, 
+    override_component_attrs, 
+    mock_snakemake
+)
 from linopy import merge
 from pypsa.descriptors import get_switchable_as_dense as get_as_dense
 from pypsa.optimization.abstract import optimize_transmission_expansion_iteratively
@@ -193,6 +199,10 @@ def prepare_network(n, solve_opts, config):
 
     if snakemake.config["foresight"] == "myopic":
         add_land_use_constraint(n)
+
+    # if not false, use the filepath and set the expansion limits 
+    if filepath := snakemake.config["solving"]["constraints"]["links_p_nom_limits"]:
+        set_expansion_limits_for_extendable_links(n, filepath)
 
     return n
 
@@ -1420,6 +1430,53 @@ def add_lossy_bidirectional_link_constraints(n: pypsa.components.Network) -> Non
     n.model.add_constraints(lhs == 0, name="Link-bidirectional_sync")
 
 
+def set_expansion_limits_for_extendable_links(n, filepath):
+
+    # ext_years = n.investment_periods if n._multi_invest else [n.snapshots[0].year]
+
+    fp = Path(BASE_DIR)/filepath
+
+    limits_minmax = pd.read_csv(fp,index_col=[0,1],header=[0,1])
+
+    current_horizon = snakemake.wildcards.planning_horizons
+
+    if current_horizon not in limits_minmax.columns.get_level_values(0):
+        raise ValueError(f"Current planning horizon '{current_horizon}' not found in link limits .csv file columns. " \
+        "Can not apply link limits. Fix the .csv file or set the config 'links_p_nom_limits' to false.")
+
+    limits_minmax = limits_minmax.xs(current_horizon, level=0, axis=1)
+
+    limits_minmax = limits_minmax.dropna(how='all')
+    
+    # Filter to only include locations that exist in both the DataFrame and the network
+    locations_with_limits = limits_minmax.index.get_level_values(0).unique()
+    network_locations = n.buses.location.unique()
+    network_locations_with_limits = locations_with_limits.intersection(network_locations)
+
+    if len(network_locations_with_limits) > 0:
+        limits_minmax = limits_minmax.loc[network_locations_with_limits]
+    else:
+        raise ValueError("No common locations found between link limits data and network buses." \
+        " Can not apply link limits. Fix the .csv file or set the config 'links_p_nom_limits' to false.")
+
+    for lim in ["min","max"]:
+        limits = limits_minmax.loc[:,lim].dropna(how="all")
+        for (location, carrier), value in limits.items():
+            link_to_limit = f"{location} {carrier}"
+            if link_to_limit in n.links.query("p_nom_extendable == True").index:
+                logger.info(f"Limiting '{link_to_limit}' link.")
+                n.links.at[link_to_limit,f"p_nom_{lim}"] = value
+            else:
+                logger.warning(f"Extendable Link '{link_to_limit}' not found in network. Skipping limit.")
+
+    # After applying limits, validate consistency:
+    for link in n.links.index:
+        if n.links.at[link, "p_nom_min"] > n.links.at[link, "p_nom_max"]:
+            raise ValueError(
+                f"Link {link}: p_nom_min ({n.links.at[link, 'p_nom_min']}) > p_nom_max ({n.links.at[link, 'p_nom_max']})")
+
+    return n
+
 def extra_functionality(n, snapshots):
     """
     Collects supplementary constraints which will be passed to
@@ -1870,18 +1927,17 @@ def validate_all_export_constraints(n, h2_production_techs=None):
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
-        from _helpers import mock_snakemake
 
         snakemake = mock_snakemake(
             "solve_sector_network",
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="Co2L0.59",
+            opts="Co2L0.965",
             planning_horizons="2030",
-            discountrate="0.082",
-            demand="RF",
             sopts="144H",
+            discountrate=0.106,
+            demand="EL",
             eopts="H2v1.0+NH3v1.0+FTv1.0",
             # configfile="config.tutorial.yaml",
         )
@@ -1944,3 +2000,33 @@ if __name__ == "__main__":
         logger.info("All green H2 and export constraints satisfied!")
     else:
         logger.warning("Some constraints violated - check validation results")
+
+    def check_water_energy_balance(network_path):
+        n = pypsa.Network(network_path)
+        
+        if "purewater" not in n.carriers.index:
+            print("❌ No water infrastructure found")
+            return
+            
+        print("=== Water-Energy Balance Analysis ===")
+        
+        # H2 production vs water consumption
+        h2_links = n.links[n.links.carrier == "H2 Electrolysis"]
+        if len(h2_links) > 0:
+            h2_production = h2_links.p1.sum()  # H2 output
+            water_consumption = -h2_links.p2.sum() if "p2" in h2_links.columns else 0  # Water input
+            
+            print(f"H2 Production: {h2_production:.2f} MWh")
+            print(f"Water Consumption: {water_consumption:.2f} m³")
+            print(f"Water per H2: {water_consumption/h2_production if h2_production > 0 else 0:.3f} m³/MWh_H2")
+        
+        # Desalination capacity vs demand
+        desal_links = n.links[n.links.carrier == "seawater desalination"]
+        if len(desal_links) > 0:
+            desal_capacity = desal_links.p_nom_opt.sum()
+            desal_production = desal_links.p1.sum()
+            
+            print(f"Desalination Capacity: {desal_capacity:.2f} MW")
+            print(f"Desalination Production: {desal_production:.2f} m³")
+            
+        print("✅ Water balance analysis complete")
