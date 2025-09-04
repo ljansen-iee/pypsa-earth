@@ -755,8 +755,9 @@ solving:
     track_iterations: false
     # nhours: 10
   
+  # extra constraints
   constraints:
-    tech_links_p_nom_minmax: true # {true, false}, Adds minimum and maximum capacity limits for links. Expects a file data/tech_links_p_nom_minmax.csv.
+    links_p_nom_limits: data/links_p_nom_minmax.csv # {false, filepath}. false, or define filepath (e.g. data/links_p_nom_minmax.csv) to a CSV file that contains min, max capacity limits for extendable (location, link_carrier) pairs.
 
   solver:
     name: gurobi

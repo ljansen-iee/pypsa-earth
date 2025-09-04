@@ -603,24 +603,24 @@ def add_desalination(n, costs):
     - Desalination links converting seawater to purewater
     - Modifies existing H2 Electrolysis links to include water consumption
     """
-    logger.info("Adding desalination infrastructure")
+    logger.info("Adding water treatment (desalination) system")
     
-    # Add purewater carrier and buses
-    n.add("Carrier", "purewater", unit="H20_m3")
+    n.add("Carrier", "purewater")
     n.madd(
         "Bus",
         spatial.purewater.nodes,
         location=spatial.purewater.locations,
         carrier="purewater",
+        unit="H20_m3",
     )
     
-    # Add seawater carrier and buses
-    n.add("Carrier", "seawater", unit="H20_m3") 
+    n.add("Carrier", "seawater") 
     n.madd(
         "Bus",
         spatial.seawater.nodes,
         location=spatial.seawater.locations,
         carrier="seawater",
+        unit="H20_m3",
     )
 
     # Add unlimited seawater supply at coastal locations with infrastructure (ports)
@@ -632,17 +632,19 @@ def add_desalination(n, costs):
         carrier="seawater",
         marginal_cost=0,  # Free seawater resource
     )
-    
-    # Add desalination plants
+
+    # Add water treatment plants
     production_techs = snakemake.params.sector_options["water"]["production_technologies"]
     
     for tech in production_techs:
+        if tech not in ["seawater desalination"]:
+            raise ValueError(f"Unknown water production technology: {tech}")
         if tech == "seawater desalination":
             n.madd(
                 "Link",
                 spatial.coastal_nodes + " desalination",
                 bus0=spatial.seawater.nodes,
-                bus1=spatial.purewater.nodes if len(spatial.purewater.nodes) == 1 else spatial.coastal_nodes + " purewater",
+                bus1=spatial.purewater.nodes,
                 bus2=spatial.coastal_nodes,  # Electricity consumption
                 p_nom_extendable=True,
                 carrier="seawater desalination",
@@ -656,25 +658,27 @@ def add_desalination(n, costs):
     h2_electrolysis_links = n.links.index[n.links.carrier == "H2 Electrolysis"]
     if not h2_electrolysis_links.empty and options["hydrogen"]["water_input"] > 0:
         logger.info("Adding water consumption to H2 Electrolysis links")
-        
-        # Check if bus2 is empty for all H2 electrolysis links
-        bus2_values = n.links.loc[h2_electrolysis_links, "bus2"]
-        if not bus2_values.isna().all():
-            raise ValueError("Some H2 Electrolysis links already have bus2 connections! " \
-            "Deactivate desalination or fix the water input addition to avoid overwriting existing connections.")
-        
-        # Determine target purewater bus
+            
         if len(spatial.purewater.nodes) == 1:
-            target_bus = spatial.purewater.nodes[0]
+            purewater_buses = spatial.purewater.nodes[0]
         else:
-            # Map each electrolysis link to its corresponding purewater bus
-            target_bus = h2_electrolysis_links.str.replace(" H2 Electrolysis", " purewater")
-        
-        n.links.loc[h2_electrolysis_links, "bus2"] = target_bus
-        n.links.loc[h2_electrolysis_links, "efficiency2"] = (
-            -options["hydrogen"]["water_input"]  # m3/MWh_H2
-            * costs.at["electrolysis", "efficiency"]  # convert to water-input in m3/MWh_el
-        )
+            purewater_buses = spatial.purewater.nodes  
+
+        for free_col_nr in range(2, 5):
+            bus_col = f"bus{free_col_nr}"
+            # Check if bus is empty for all H2 electrolysis links
+            bus_values = n.links.loc[h2_electrolysis_links, bus_col]
+            if not bus_values.isin([""]).all():
+                continue
+            else:
+                logger.info(f"Adding water consumption and pure water buses to bus{free_col_nr} and efficiency{free_col_nr} for all \
+                H2 Electrolysis links")
+
+            n.links.loc[h2_electrolysis_links, "bus2"] = purewater_buses
+            n.links.loc[h2_electrolysis_links, "efficiency2"] = (
+                -options["hydrogen"]["water_input"]  # m3/MWh_H2
+                * costs.at["electrolysis", "efficiency"]  # convert to water-input in m3/MWh_el
+            )
 
 
 def add_ammonia(n, costs):
@@ -923,30 +927,28 @@ def define_spatial(nodes, options):
     # water infrastructure
     if options["water"]["enable"]:
         spatial.water = SimpleNamespace()
+        coastal_nodes = get_port_nodes(nodes)
+        spatial.coastal_nodes = coastal_nodes
         
-        if options["water"]["spatial_purewater"]:
-            # Spatially distributed water infrastructure
+        if options["water"]["spatial_water"]:
+            raise NotImplementedError("Spatial water infrastructure modelling is not yet implemented.")
+            
             spatial.purewater = SimpleNamespace()
             spatial.purewater.nodes = nodes + " purewater"
             spatial.purewater.locations = nodes
             
             spatial.seawater = SimpleNamespace() 
-            # Get coastal nodes from ports data
-            coastal_nodes = get_port_nodes(nodes)
             spatial.seawater.nodes = coastal_nodes + " seawater"
             spatial.seawater.locations = coastal_nodes
-            spatial.coastal_nodes = coastal_nodes
         else:
-            # Global water infrastructure (default)
+            # Global pure water node (default)
             spatial.purewater = SimpleNamespace()
             spatial.purewater.nodes = ["Earth purewater"]
             spatial.purewater.locations = ["Earth"]
-            
+            # seawater is still restricted to coastal nodes
             spatial.seawater = SimpleNamespace()
-            coastal_nodes = get_port_nodes(nodes)
             spatial.seawater.nodes = coastal_nodes + " seawater" 
             spatial.seawater.locations = coastal_nodes
-            spatial.coastal_nodes = coastal_nodes
 
     return spatial
 
@@ -3689,7 +3691,7 @@ if __name__ == "__main__":
 
     add_hydrogen(n, costs)
 
-    # Add water infrastructure if enabled
+    # Add water treatment if enabled
     if options["water"]["enable"]:
         add_desalination(n, costs)
 
