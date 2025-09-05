@@ -195,6 +195,11 @@ sector:
     set_color_shares: false
     blue_share: 0.40
     pink_share: 0.05
+    water_input: 0.6 # Pure water consumption for electrolysis in [m3/MWh_H2] (20m3/kg_H2 -> 0.6m3/MWh_H2). Activate water consumption with sector[water][enable].
+  water:
+    enable: true # Enable seawater desalination or other water treatment methods for ultra pure water supply
+    spatial_water: false # false means, water treatment is suppling to global purewater node ("Earth purewater"). true is not implemented yet.
+    production_technologies: ["seawater desalination"] # Currently only seawater desalination in regions with ports.
   coal:
     spatial_coal: true
     shift_to_elec: true # If true, residential and services demand of coal is shifted to electricity. If false, the final energy demand of coal is disregarded
@@ -282,24 +287,24 @@ sector:
   # https://www.iea.org/reports/aviation-and-shipping#dashboard --> we choose lower values compared to IEA because methanol ships are currently ordnered instead of ammonia ships.
   # Share of hydrogen or hydrogen-equivalents of ammonia shipping. Might depend on country and routes.
   # Fischer-tropsch based shipping e-fuel share is result of optimisation and co2limit. Co2L must consider international shipping emissions. --> to be discussed.
-  shipping_hydrogen_share: #1.0
+  shipping_hydrogen_share:
     RF_2030: 0.0
     EL_2030: 0.0
     RF_2035: 0.0
     EL_2035: 0.0
     RF_2050: 0.0
     EL_2050: 0.0
-  shipping_ammonia_share: #1.0
+  shipping_ammonia_share:
     RF_2030: 0.0
     EL_2030: 0.0
     RF_2050: 0.39
     EL_2050: 0.39
-  shipping_methanol_share: #1.0
+  shipping_methanol_share:
     RF_2030: 0.0
     EL_2030: 0.0
     RF_2050: 0.0
     EL_2050: 0.0
-  shipping_oil_share: #1.0
+  shipping_oil_share:
     RF_2030: 1.0
     EL_2030: 1.0
     RF_2050: 0.61

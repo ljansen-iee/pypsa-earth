@@ -550,7 +550,7 @@ sector:
     water_input: 0.6 # Pure water consumption for electrolysis in [m3/MWh_H2] (20m3/kg_H2 -> 0.6m3/MWh_H2). Activate water consumption with sector[water][enable].
   water:
     enable: false # Enable seawater desalination or other water treatment methods for ultra pure water supply
-    spatial_water: false # false means, water treatment is suppling to global purewater node ("Earth purewater").
+    spatial_water: false # false means, water treatment is suppling to global purewater node ("Earth purewater"). true is not implemented yet.
     production_technologies: ["seawater desalination"] # Currently only seawater desalination in regions with ports.
   coal:
     spatial_coal: true
@@ -699,22 +699,22 @@ sector:
   shipping_hydrogen_liquefaction: false
   shipping_average_efficiency: 0.4 #For conversion of fuel oil to propulsion in 2011
 
-  shipping_hydrogen_share: #1.0
+  shipping_hydrogen_share:
     AP_2030: 0.00
     NZ_2030: 0.10
     AP_2050: 0.25
     NZ_2050: 0.36
-  shipping_ammonia_share: #1.0
+  shipping_ammonia_share:
     AP_2030: 0.00
     NZ_2030: 0.00
     AP_2050: 0.00
     NZ_2050: 0.00
-  shipping_methanol_share: #1.0
+  shipping_methanol_share:
     AP_2030: 0.00
     NZ_2030: 0.00
     AP_2050: 0.00
     NZ_2050: 0.00
-  shipping_oil_share: #1.0
+  shipping_oil_share:
     AP_2030: 1.00
     NZ_2030: 0.90
     AP_2050: 0.75
@@ -754,7 +754,7 @@ solving:
     skip_iterations: true
     track_iterations: false
     # nhours: 10
-  
+    
   # extra constraints
   constraints:
     links_p_nom_limits: data/links_p_nom_minmax.csv # {false, filepath}. false, or define filepath (e.g. data/links_p_nom_minmax.csv) to a CSV file that contains min, max capacity limits for extendable (location, link_carrier) pairs.

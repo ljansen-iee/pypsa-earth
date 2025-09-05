@@ -1933,12 +1933,12 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="Co2L0.965",
+            opts="Co2L1.171",
             planning_horizons="2030",
             sopts="144H",
-            discountrate=0.106,
+            discountrate=0.078,
             demand="EL",
-            eopts="H2v1.0+NH3v1.0+FTv1.0",
+            eopts="H2v1.0",
             # configfile="config.tutorial.yaml",
         )
 
@@ -2000,33 +2000,3 @@ if __name__ == "__main__":
         logger.info("All green H2 and export constraints satisfied!")
     else:
         logger.warning("Some constraints violated - check validation results")
-
-    def check_water_energy_balance(network_path):
-        n = pypsa.Network(network_path)
-        
-        if "purewater" not in n.carriers.index:
-            print("❌ No water infrastructure found")
-            return
-            
-        print("=== Water-Energy Balance Analysis ===")
-        
-        # H2 production vs water consumption
-        h2_links = n.links[n.links.carrier == "H2 Electrolysis"]
-        if len(h2_links) > 0:
-            h2_production = h2_links.p1.sum()  # H2 output
-            water_consumption = -h2_links.p2.sum() if "p2" in h2_links.columns else 0  # Water input
-            
-            print(f"H2 Production: {h2_production:.2f} MWh")
-            print(f"Water Consumption: {water_consumption:.2f} m³")
-            print(f"Water per H2: {water_consumption/h2_production if h2_production > 0 else 0:.3f} m³/MWh_H2")
-        
-        # Desalination capacity vs demand
-        desal_links = n.links[n.links.carrier == "seawater desalination"]
-        if len(desal_links) > 0:
-            desal_capacity = desal_links.p_nom_opt.sum()
-            desal_production = desal_links.p1.sum()
-            
-            print(f"Desalination Capacity: {desal_capacity:.2f} MW")
-            print(f"Desalination Production: {desal_production:.2f} m³")
-            
-        print("✅ Water balance analysis complete")
