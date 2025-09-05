@@ -438,27 +438,29 @@ def add_export(n, exp_carrier, volume, price, profile, nodes_with_port, costs, s
             f"Value {snakemake.params.export_endogenous} for ['export']['endogenous'] must be true or false."
         )
 
-    # add store depending on config settings
-    if snakemake.params.export_store == True and exp_carrier == "H2":
-        if snakemake.params.export_store_capital_costs == "no_costs":
+    # add store at export bus depending on config settings
+    config_store = snakemake.params.export_store
+    config_store_costs = snakemake.params.export_store_capital_costs
+
+    if config_store == True:
+        if config_store_costs == "no_costs":
             capital_cost = 0
-        elif snakemake.params.export_store_capital_costs == "standard_costs":
+        elif config_store_costs == "standard_costs" and exp_carrier == "H2":
             capital_cost = costs.at[
                 "hydrogen storage tank type 1 including compressor", "fixed"
             ]
         else:
             raise ValueError(
-                f"Value {snakemake.params.export_store_capital_costs} for ['export']['store_capital_costs'] "
-                "is not valid"
+                f"Combination of values for export_store and export_store_capital_costs ({config_store_costs}, {exp_carrier}) "
+                "are not valid!"
             )
 
         n.add(
             "Store",
-            "H2 export store",
-            bus="H2 export bus",
+            exp_carrier + " export store",
+            bus=exp_carrier + " export bus",
             e_nom_extendable=True,
-            carrier="H2 export store",
-            e_initial=0,  # actually not required, since e_cyclic=True
+            carrier=exp_carrier + " export store",
             marginal_cost=0,
             capital_cost=capital_cost,
             e_cyclic=True,
