@@ -50,6 +50,40 @@ def country_to_nodal(industrial_production, keys):
     return nodal_production
 
 
+def validate_custom_demands(industry_totals, countries, industry_sector="iron and steel"):
+    """
+    Validate custom demand data for potential conflicts between different demand specifications.
+    
+    Warns if industry load is specified in the unit of the end product ton (for steel) 
+    or energy for ammonia and methanol (for endogenous production) 
+    or exogenous energy/feedstock demand for producing the end product.
+    
+    Args:
+        industry_totals (pd.DataFrame): DataFrame with MultiIndex (country, carrier) 
+                                       and industry sectors as columns
+        countries (list): List of countries to check
+        industry_sector (str): Industry sector to validate (default: "iron and steel")
+    """
+    
+    to_product = {
+        "iron and steel": ["steel"],
+        "chemical and petrochemical": ["ammonia", "methanol"],
+    }
+
+    demand_b = (
+        industry_totals.index.get_level_values(1).isin(to_product[industry_sector]) 
+        & industry_totals.index.get_level_values(0).isin(countries))
+    demand_in_final_product = industry_totals.loc[demand_b, industry_sector].sum()
+    demand_in_energy = industry_totals.loc[~demand_b, industry_sector].sum()
+
+    if demand_in_final_product > 0 and demand_in_energy > 0:
+        _logger.warning(
+            f"VALIDATION WARNING: {industry_sector} industry demand is specified using BOTH methods for countries {countries}:\n"
+            f"  - Endogenous final product demand: {demand_in_final_product:.2f} (steel/ammonia/methanol carrier, in tons or energy content)\n"
+            f"  - Exogenous energy/feedstock demand for producing final product: {demand_in_energy:.2f} (energy carriers)\n"
+            f"This dual specification may lead to double-counting. Please verify this is intentional or adjust your input data.")
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         snakemake = mock_snakemake(
@@ -88,6 +122,7 @@ if __name__ == "__main__":
         "low-temperature heat",
         "ammonia",
         "methanol",
+        "steel",
         "process emissions",
     ]
 
@@ -98,8 +133,8 @@ if __name__ == "__main__":
             missing_carriers = set(all_carriers) - set(carriers_present)
             for carrier in missing_carriers:
                 # Add the missing carrier with a value of 0
-                if missing_carriers == "process emissions":
-                    raise ValueError(
+                if carrier == "process emissions":
+                    raise KeyError(
                         "Process emissions should not be missing. Check the custom data file."
                     )
                 else:
@@ -131,6 +166,9 @@ if __name__ == "__main__":
         )
 
         industry_totals = fill_and_merge_other_industries(industry_totals)
+
+        validate_custom_demands(industry_totals, countries, "iron and steel")
+        validate_custom_demands(industry_totals, countries, "chemical and petrochemical")
 
         keys_path = snakemake.input.industrial_distribution_key
 
@@ -373,7 +411,7 @@ if __name__ == "__main__":
     }
     nodal_df.rename(columns=rename_sectors, inplace=True)
 
-    nodal_df.index.name = "MWh/a (tCO2/a)"
+    nodal_df.index.name = "MWh/a, tCO2/a or tSteel/a"
 
     nodal_df.to_csv(
         snakemake.output.industrial_energy_demand_per_node, float_format="%.2f"
