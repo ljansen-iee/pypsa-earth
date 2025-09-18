@@ -1,8 +1,12 @@
 import pandas as pd
 import pypsa
+from pathlib import Path
 
 DIR = "C:/Users/ljansen/OneDrive - Fraunhofer/Globale ESA/04_methods_and_models/energyANTS/"
-COUNTRY = ("CHL", "CL")
+COUNTRY = ("MAR", "MA")
+run_name_prefix = f"MAPaper"  # Change this to the desired run name without planning year
+YEARS = [2035]
+sdir = Path("../data/custom")  # Define saving directory
 
 # Convert column index to multi-level index
 # Assuming columns are in format like: "EGY.8.1_wind_class_1" or similar
@@ -55,12 +59,11 @@ if __name__ == "__main__":
 
     ts.columns = multi_index
 
-    run_name_prefix = f"DKS_{COUNTRY[1]}"  # Change this to the desired run name without planning year
     carriers = ["onwind", "solar"]
 
     for resource_class in ts.columns.get_level_values('class').unique():
         for car in carriers:
-            for yr in [2030, 2050]:
+            for yr in YEARS:
 
                 p_max_pu = (
                     ts
@@ -71,8 +74,12 @@ if __name__ == "__main__":
 
                 p_max_pu.columns = buses + " " + resource_class + " " + car
 
+                # Create saving directory
+                save_dir = sdir / f"{run_name_prefix}_{yr}" / "renewables"
+                save_dir.mkdir(exist_ok=True, parents=True)
+
                 p_max_pu.to_csv(
-                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{resource_class} {car}-{yr}-p_max_pu.csv"
+                    save_dir / f"{resource_class} {car}-{yr}-p_max_pu.csv"
                 )
 
             if resource_class == "1":
@@ -117,7 +124,7 @@ if __name__ == "__main__":
             max_exp_limits = max_expansion_limits.copy()
             max_exp_limits = max_exp_limits.query("resource_class == @resource_class")
             max_exp_limits.index = max_exp_limits["node"] + "_AC" + " " + max_exp_limits["resource_class"] + " " + car
-            for yr in [2030, 2050]: # use different network for other years because of different costs
+            for yr in YEARS: # use different network for other years because of different costs
                 n = pypsa.Network(f"../networks/{run_name_prefix}_{yr}/elec_s_10.nc")
 
                 buses = n.buses[n.buses.carrier == "AC"].index
@@ -126,8 +133,12 @@ if __name__ == "__main__":
                     n.generators[relevant_attrs]
                     .query("carrier == @car and bus in @buses"))
 
+                # Create saving directory
+                save_dir = sdir / f"{run_name_prefix}_{yr}" / "renewables"
+                save_dir.mkdir(exist_ok=True, parents=True)
+
                 gens.to_csv(
-                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{car}-{yr}.csv", # as reference
+                    save_dir / f"{car}-{yr}.csv", # as reference
                 )
 
                 gens.index = buses + " " + resource_class + " " + car
@@ -148,5 +159,5 @@ if __name__ == "__main__":
                     gens["p_nom_min"] = 0. 
 
                 gens.to_csv(
-                    f"../data/custom/{run_name_prefix}_{yr}/renewables/{resource_class} {car}-{yr}.csv",
+                    save_dir / f"{resource_class} {car}-{yr}.csv",
                 )
