@@ -303,8 +303,8 @@ def get_supply_demand_from_balance(
     supply_df = supply_df.groupby(groupby_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
     supply_sum_df = supply_df.groupby(id_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
 
-    demand_df = stats_df[abs(stats_df["value"]) >= threshold].copy()
-    # demand_df = stats_df[stats_df["value"] <= -threshold].copy()
+    # demand_df = stats_df[abs(stats_df["value"]) >= threshold].copy()
+    demand_df = stats_df[stats_df["value"] <= -threshold].copy()
     demand_df["value"] *= -1  # Convert to positive values
     demand_df = demand_df.groupby(groupby_vars, as_index=False).sum(numeric_only=True).round(round_decimals)
     demand_sum_df = demand_df.groupby(id_vars, as_index=False).sum(numeric_only=True).round(round_decimals)

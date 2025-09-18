@@ -23,28 +23,30 @@ chdir_to_parent_dir()
 
 #%%
 
-run_name_prefix = "DKS" # Experiment name. It can be freely chosen.
+run_name_prefix = "MAPaper" # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_202508v5"
+sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_v1"
 sdir.mkdir(exist_ok=True, parents=True)
 
 all_run_names = [
-    "DKS_CL_2030",
-    "DKS_CL_2050",
-    "DKS_EG_2030",
-    "DKS_EG_2050",
-    "DKS_MA_2030",
-    "DKS_MA_2050",
-    "DKS_ZA_2030",
-    "DKS_ZA_2050",
-    "DKS_CL_2030_AB",
-    "DKS_CL_2050_AB",
-    "DKS_EG_2030_AB",
-    "DKS_EG_2050_AB",
-    "DKS_MA_2030_AB",
-    "DKS_MA_2050_AB",
-    "DKS_ZA_2030_AB",
-    "DKS_ZA_2050_AB",
+    # "DKS_CL_2030",
+    # "DKS_CL_2050",
+    # "DKS_EG_2030",
+    # "DKS_EG_2050",
+    # "DKS_MA_2030",
+    # "DKS_MA_2050",
+    # "DKS_ZA_2030",
+    # "DKS_ZA_2050",
+    # "DKS_CL_2030_AB",
+    # "DKS_CL_2050_AB",
+    # "DKS_EG_2030_AB",
+    # "DKS_EG_2050_AB",
+    # "DKS_MA_2030_AB",
+    # "DKS_MA_2050_AB",
+    # "DKS_ZA_2030_AB",
+    # "DKS_ZA_2050_AB",
+    # "MAPaper_2030",
+    "MAPaper_2035",
 ]   
 
 #%%
@@ -72,7 +74,7 @@ all_wildcards = {
 all_configs = {
     run_name:
         yaml.safe_load(
-            Path(f"configs/DKS/config.{run_name}.yaml").read_text()) # TODO: config file names should be equal to the run name
+            Path(f"configs/{run_name_prefix}/config.{run_name}.yaml").read_text()) # TODO: config file names should be equal to the run name
         for run_name in all_run_names
 }
 
@@ -125,7 +127,7 @@ if nc_files.empty:
 # initialise dicts per metric (market balance, optimal capacities, costs, marginal prices) with dataframes per bus_carrier or other groups
 
 balance_dict = init_stats_dict(nc_files, keys=[
-    "AC", "H2", "oil", "gas", "co2 stored", "co2",
+    "AC", "H2", "oil", "gas", "co2 stored", "co2", "methanol", "NH3"
     #"freshwater"
     ], name="bus_carrier")
 
@@ -133,9 +135,9 @@ optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2"], name="bus_c
 
 costs_dict = init_stats_dict(nc_files, keys=["capex", "opex"], name="costs")
 
-time_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus", "FT export bus", "NH3 export bus"])
+time_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export", "FT export", "NH3 export"])
 time_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
-load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus", "FT export bus", "NH3 export bus"])
+load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export", "FT export", "NH3 export"])
 load_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
 
 for nc_files_idx in nc_files.index:
@@ -177,7 +179,7 @@ for nc_files_idx in nc_files.index:
         # if bus_carrier == "H2" and ("H2 export" in n.loads.carrier.unique() or "H2 export load" in n.loads.carrier.unique()):
 
         #     ds = (
-        #         n.statistics.energy_balance(bus_carrier="H2 export bus", drop_zero=True)
+        #         n.statistics.energy_balance(bus_carrier="H2 export", drop_zero=True)
         #         .dropna()
         #         .groupby("carrier").sum()
         #         .div(1e6)
@@ -219,13 +221,14 @@ for nc_files_idx in nc_files.index:
     # adding those revenues for export as negative opex costs
     # TODO: decide how to integrate revenues from exports in the costs_dict
     # if bus_carrier + " export" in n.loads_t.p.columns.unique():
-    #     H2_export_price = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting!
+    #     H2_export_price = n.buses_t.marginal_price["H2 export"].mean() # NB: hourly pattern is interesting!
     #     costs_dict["opex"].at[nc_files_idx,"H2 export"] = -(
-    #         n.loads_t.p_set["H2 export"].mul(n.buses_t.marginal_price["H2 export bus"]).sum()/1e9
+    #         n.loads_t.p_set["H2 export"].mul(n.buses_t.marginal_price["H2 export"]).sum()/1e9
     #     )
 
     ##### time and load averaged marginal prices per bus_carrier in EUR/MWh
 
+    EXPORT_NDOES = []
     for bus_carrier in ["H2","NH3","FT"]:
         buses = n.buses.loc[n.buses.index.str.contains(bus_carrier)]
         for bus in buses.index:
@@ -234,13 +237,13 @@ for nc_files_idx in nc_files.index:
 
             if bus_carrier + " export" in n.loads_t.p.columns.unique():
                 demand = n.loads_t.p[bus_carrier + " export"]
-                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
+                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export"]).sum())/(demand.sum())
                 load_avg_marginal_price.at[nc_files_idx, bus] = value
             elif bus_carrier + " export" in n.generators_t.p.columns.unique():
                 logger.warning(f"No exogenous load for {bus_carrier} export bus found")
                 logger.warning(f"Marginal prices are impacted by endogenous export and export prices!")
                 demand = -1*n.generators_t.p[bus_carrier + " export"]
-                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export bus"]).sum())/(demand.sum())
+                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export"]).sum())/(demand.sum())
                 load_avg_marginal_price.at[nc_files_idx, bus] = value
             else:
                 logger.warning(f"No exogenous or endogenous load found for {bus_carrier} export bus in {nc_files_idx}")
@@ -262,4 +265,17 @@ print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}"
 # %%
 
 
-n.buses_t.marginal_price["CL.11_1_AC H2"].clip(upper=150).plot()
+nh3_buses = n.buses[n.buses.index.str.contains("NH3")].index
+nh3_prices_per_t = n.buses_t.marginal_price[nh3_buses] * 5.17
+nh3_prices_per_t.round(0).plot(legend=False, title="NH3 €/t", drawstyle='steps')
+
+h2_buses = n.buses[n.buses.index.str.contains("H2")].index
+h2_prices_per_t = n.buses_t.marginal_price[h2_buses] * 33.3333 / 1000
+h2_prices_per_t.round(0).plot(legend=False, title="H2 €/kg", drawstyle='steps')
+
+h2_prices_per_t_weekly = h2_prices_per_t.resample('W').mean()
+h2_prices_per_t_weekly.round(0).plot(legend=False, title="H2 €/kg (Weekly Mean)", drawstyle='steps')
+
+n.buses_t.marginal_price["Earth HBI"].round(0).plot(legend=False, title="HBI", drawstyle='steps')
+
+n.buses_t.marginal_price["Earth steel"].round(0).plot(legend=False, title="Steel", drawstyle='steps')
