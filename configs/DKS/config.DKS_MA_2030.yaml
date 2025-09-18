@@ -45,16 +45,16 @@ scenario:
   # - 2050
   sopts:
   # - "6H"
-  - "1H"
+  # - "1H"
   - "4H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
   # - "RF"
   - "EL" 
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
-  - "H2v1.0"
+  # - "H2v1.0"
   - "H2v0.5"
-  - ""
+  # - ""
 
 augmented_line_connection:
   add_to_snakefile: false # If True, includes this rule to the workflow
@@ -88,6 +88,20 @@ electricity:
 lines:
   s_max_pu: 0.5
   length_factor: 1.25
+
+renewable:
+  hydro:
+    normalization:
+      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
+      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
+    multiplier: 1.1 # multiplier applied after the normalization of the hydro production; default 1.0
+
+renewable:
+  hydro:
+    normalization:
+      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
+      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
+    multiplier: 1.1 # multiplier applied after the normalization of the hydro production; default 1.0
 
 costs:
   year: 2030
@@ -316,7 +330,7 @@ sector:
   methanation: true
   helmeth: false
   dac: true
-  SMR: true
+  SMR: false
   SMR CC: false
   cc_fraction: 0.9
   cc: true

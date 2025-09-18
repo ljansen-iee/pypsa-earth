@@ -88,6 +88,13 @@ lines:
   s_max_pu: 0.5
   length_factor: 1.25
 
+renewable:
+  hydro:
+    normalization:
+      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
+      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
+    multiplier: 1.1 # multiplier applied after the normalization of the hydro production; default 1.0
+
 costs:
   year: 2050
   version: v0.11.0
@@ -315,7 +322,7 @@ sector:
   methanation: true
   helmeth: false
   dac: true
-  SMR: true
+  SMR: false
   SMR CC: false
   cc_fraction: 0.9
   cc: true

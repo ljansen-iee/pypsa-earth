@@ -3,8 +3,8 @@
 snakemake solve_sector_networks --cluster-config configs/cluster_config.yaml \
 --cluster "sbatch -p {cluster.partition} -t {cluster.walltime} -c {cluster.cpus_per_task} --mem {cluster.mem_mb} -x {cluster.exclude}" \
 --jobs 199 --latency-wait 60 --keep-going \
---configfile configs/DKS/config.DKS_MA_2050.yaml \
---rerun-trigger mtime 
+--configfile configs/MAPaper/config.MAPaper_2035.yaml \
+# --rerun-trigger mtime 
 #--until prepare_network \
 # cp configs/DKS/config.DKS_MA_2050_AB.yaml results/DKS_MA_2030/configs/
 
@@ -24,4 +24,11 @@ snakemake solve_sector_networks --cluster-config configs/cluster_config.yaml \
 #  configs/DKS/config.DKS_EG_2050_AB.yaml
 #  configs/DKS/config.DKS_MA_2050_AB.yaml
 #  configs/DKS/config.DKS_ZA_2050_AB.yaml
+
+# MA Paper
+# configs/MAPaper/config.MAPaper_2030
+# configs/MA/config.2030_Exp.yaml
+
+
+
 # bash run_slurm.sh
