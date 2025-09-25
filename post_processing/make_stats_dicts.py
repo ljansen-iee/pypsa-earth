@@ -33,8 +33,8 @@ all_run_names = [
     "H2G_A_EG_2050", 
     "H2G_A_ET_2035",
     "H2G_A_ET_2050",
-    #"H2G_A_GH_2035",
-    #"H2G_A_GH_2050",
+    "H2G_A_GH_2035",
+    "H2G_A_GH_2050",
     "H2G_A_KE_2035",
     "H2G_A_KE_2050",
     "H2G_A_MA_2035",
@@ -45,9 +45,11 @@ all_run_names = [
     "H2G_A_NG_2050",
     "H2G_A_TN_2035",
     "H2G_A_TN_2050",
+    "H2G_A_TZ_2035",
+    "H2G_A_TZ_2050",
     "H2G_A_ZA_2035", 
-    "H2G_A_ZA_2050",
-]
+    "H2G_A_ZA_2050"
+               ]
 
 #%%
 
