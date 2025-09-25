@@ -102,10 +102,10 @@ logger = create_logger(__name__)
 pypsa.pf.logger.setLevel(logging.WARNING)
 
 
-def calculate_snapshot_max_load_shedding_p_nom(n, safety_margin=1.2):
+def get_load_shedding_capacity(n, safety_margin=1.2):
     """
-    Calculate required p_nom based on the maximum 
-    total load that occurs at each bus in any single snapshot.
+    Calculate required load shedding p_nom per bus based on the
+    maximum aggregated load observed in any snapshot.
     
     Parameters
     ----------
@@ -117,25 +117,21 @@ def calculate_snapshot_max_load_shedding_p_nom(n, safety_margin=1.2):
     Returns
     -------
     pd.Series
-        Series with bus names as index and required p_nom values for load shedding
+        Required p_nom per bus for load shedding.
     """
 
-    load_shedding_p_nom = pd.Series(0.0, index=n.buses.index, name='load_shedding_p_nom')
+    load_shedding_p_nom = pd.Series(0.0, index=n.buses.index)
     
-    loads_by_bus = n.loads.groupby('bus')
-    
-    for bus_name, bus_loads in loads_by_bus:
-        load_indices = bus_loads.index
+    for bus_name, bus_loads in n.loads.groupby('bus'):
         
         if not n.loads_t.p_set.empty:
-            bus_load_timeseries = n.loads_t.p_set[load_indices.intersection(n.loads_t.p_set.columns)]
-            
+            bus_load_timeseries = (
+                n.loads_t.p_set[bus_loads.index.intersection(n.loads_t.p_set.columns)]
+            )
             # Sum loads across all components at this bus for each snapshot
             total_load_per_snapshot = bus_load_timeseries.sum(axis=1)
-            
             max_total_load = total_load_per_snapshot.max()
         else:
-            # No time series data, use static values
             max_total_load = bus_loads['p_set'].sum()
         
         required_p_nom = max_total_load * safety_margin
@@ -163,7 +159,7 @@ def prepare_network(n, solve_opts, config):
     if solve_opts.get("load_shedding"):
         n.add("Carrier", "load shedding", color="#dd2e23", nice_name="Load shedding")
         
-        required_p_nom = calculate_snapshot_max_load_shedding_p_nom(n, safety_margin=1.2)
+        required_p_nom = get_load_shedding_capacity(n, safety_margin=1.2)
         
         n.madd(
             "Generator",
@@ -173,7 +169,7 @@ def prepare_network(n, solve_opts, config):
             carrier="load shedding",
             sign=1,
             marginal_cost=solve_opts.get("load_shedding") * 1000,  # convert to Eur/MWh
-            p_nom=required_p_nom.reindex(n.buses.index, fill_value=0.5e6),  # fallback to 0.5e6 if no load data
+            p_nom=required_p_nom.reindex(n.buses.index, fill_value=0.5e6),
         )
 
     if solve_opts.get("noisy_costs"):
