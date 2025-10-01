@@ -811,13 +811,10 @@ solving:
       method: 2 # barrier
       crossover: 0
       BarConvTol: 1.e-6
-      OptimalityTol: 1.e-6
       Seed: 123
       AggFill: 0
       PreDual: 0
       GURO_PAR_BARDENSETHRESH: 200
-      BarHomogeneous: 1
-      BarOrder: 0
     gurobi-numeric-focus:
       NumericFocus: 3 # Favour numeric stability over speed
       method: 2 # barrier
