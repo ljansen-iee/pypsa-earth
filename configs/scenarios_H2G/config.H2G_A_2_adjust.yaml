@@ -739,8 +739,8 @@ sector:
     NZ_2050: 0.68
 
   co2_network: false
-  co2_sequestration_potential: 0 #MtCO2/a sequestration potential for Europe 
-  co2_sequestration_cost: 10 #EUR/tCO2 for sequestration of CO2
+  co2_sequestration_potential: 200 #MtCO2/a sequestration potential for Europe 
+  co2_sequestration_cost: 400 #EUR/tCO2 for sequestration of CO2
   shipping_hydrogen_liquefaction: false
   shipping_average_efficiency: 0.4 #For conversion of fuel oil to propulsion in 2011
 
