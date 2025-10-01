@@ -646,7 +646,7 @@ sector:
   transport_internal_combustion_efficiency: 0.3
   industry_util_factor: 0.7
 
-  biomass_transport: true # biomass transport between nodes
+  biomass_transport: false # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
   solid_biomass_potential: # TWh/a, Potential of whole modelled area 
     - 367  # CD
@@ -738,7 +738,7 @@ sector:
     AB_2050: 0.45
     NZ_2050: 0.68
 
-  co2_network: true
+  co2_network: false
   co2_sequestration_potential: 0 #MtCO2/a sequestration potential for Europe 
   co2_sequestration_cost: 10 #EUR/tCO2 for sequestration of CO2
   shipping_hydrogen_liquefaction: false
