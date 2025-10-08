@@ -73,7 +73,7 @@ ATLITE_NPROCESSES = config["atlite"].get("nprocesses", 4)
 wildcard_constraints:
     simpl="[a-zA-Z0-9]*|all",
     clusters="[0-9]+(m|flex)?|all|min",
-    ll="(v|c)([0-9\.]+|opt|all)|all",
+    ll="(v|c|l)([0-9\.]+|opt|all)|all",
     opts="[-+a-zA-Z0-9\.]*",
     unc="[-+a-zA-Z0-9\.]*",
     sopts="[-+a-zA-Z0-9\.\s]*",
@@ -472,7 +472,7 @@ rule build_renewable_profiles:
     input:
         natura="resources/" + RDIR + "natura.tiff",
         copernicus="data/copernicus/PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif",
-        gebco="data/gebco/GEBCO_2021_TID.nc",
+        gebco="data/gebco/GEBCO_2025_sub_ice.nc",
         country_shapes="resources/" + RDIR + "shapes/country_shapes.geojson",
         offshore_shapes="resources/" + RDIR + "shapes/offshore_shapes.geojson",
         hydro_capacities="data/hydro_capacities.csv",
@@ -629,11 +629,12 @@ rule cluster_network:
         costs=config["costs"],
         length_factor=config["lines"]["length_factor"],
         renewable=config["renewable"],
-        geo_crs=config["crs"]["geo_crs"],
+        crs=config["crs"],
         countries=config["countries"],
         cluster_options=config["cluster_options"],
         focus_weights=config.get("focus_weights", None),
-        #custom_busmap=config["enable"].get("custom_busmap", False)
+        custom_busmap=config["enable"].get("custom_busmap", False),
+        subregion=config["subregion"],
     input:
         network="networks/" + RDIR + "elec_s{simpl}.nc",
         country_shapes="resources/" + RDIR + "shapes/country_shapes.geojson",
@@ -649,9 +650,13 @@ rule cluster_network:
         #Link: https://drive.google.com/drive/u/1/folders/1dkW1wKBWvSY4i-XEuQFFBj242p0VdUlM
         gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
         # busmap=ancient('resources/" + RDIR + "bus_regions/busmap_elec_s{simpl}.csv'),
-        # custom_busmap=("data/custom_busmap_elec_s{simpl}_{clusters}.csv"
-        #                if config["enable"].get("custom_busmap", False) else []),
+        custom_busmap=(
+            "data/custom_busmap_elec_s{simpl}_{clusters}.csv"
+            if config["enable"].get("custom_busmap", False)
+            else []
+        ),
         tech_costs=COSTS,
+        subregion_shapes="resources/" + RDIR + "shapes/subregion_shapes.geojson",
     output:
         network=branch(
             config["augmented_line_connection"].get("add_to_snakefile", False) == True,
@@ -783,6 +788,7 @@ if config["monte_carlo"]["options"].get("add_to_snakefile", False) == False:
         params:
             solving=config["solving"],
             augmented_line_connection=config["augmented_line_connection"],
+            policy_config=config["policy_config"],
         input:
             overrides=BASE_DIR + "/data/override_component_attrs",
             network="networks/" + RDIR + "elec_s{simpl}_{clusters}_ec_l{ll}_{opts}.nc",
@@ -850,6 +856,7 @@ if config["monte_carlo"]["options"].get("add_to_snakefile", False) == True:
         params:
             solving=config["solving"],
             augmented_line_connection=config["augmented_line_connection"],
+            policy_config=config["policy_config"],
         input:
             overrides=BASE_DIR + "/data/override_component_attrs",
             network="networks/"
@@ -1081,6 +1088,7 @@ rule prepare_sector_network:
         sector_options=config["sector"],
         foresight=config["foresight"],
         water_costs=config["custom_data"]["water_costs"],
+        co2_budget=config["co2_budget"],
     input:
         **branch(sector_enable["land_transport"], TRANSPORT),
         **branch(sector_enable["heat"], HEAT),
@@ -1628,6 +1636,7 @@ if config["foresight"] == "overnight":
         params:
             solving=config["solving"],
             augmented_line_connection=config["augmented_line_connection"],
+            policy_config=config["policy_config"],
         input:
             overrides=BASE_DIR + "/data/override_component_attrs",
             # network=RESDIR
@@ -1642,12 +1651,15 @@ if config["foresight"] == "overnight":
         shadow:
             "copy-minimal" if os.name == "nt" else "shallow"
         log:
-            solver=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_solver.log",
-            python=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_python.log",
-            memory=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_memory.log",
+            solver="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_solver.log",
+            python="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_python.log",
+            memory="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_memory.log",
         threads: 25
         resources:
             mem_mb=config["solving"]["mem"],
@@ -2098,6 +2110,7 @@ if config["foresight"] == "myopic":
                 "co2_sequestration_potential", 200
             ),
             augmented_line_connection=config["augmented_line_connection"],
+            policy_config=config["policy_config"],
         input:
             overrides=BASE_DIR + "/data/override_component_attrs",
             network=RESDIR
@@ -2112,12 +2125,15 @@ if config["foresight"] == "myopic":
         shadow:
             "copy-minimal" if os.name == "nt" else "shallow"
         log:
-            solver=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_solver.log",
-            python=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_python.log",
-            memory=RESDIR
-            + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_memory.log",
+            solver="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_solver.log",
+            python="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_python.log",
+            memory="logs/"
+            + SECDIR
+            + "solve_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_memory.log",
         threads: 25
         resources:
             mem_mb=config["solving"]["mem"],

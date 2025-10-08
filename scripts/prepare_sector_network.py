@@ -30,6 +30,7 @@ from _helpers import (
     three_2_two_digits_country,
     two_2_three_digits_country,
 )
+from prepare_network import add_co2limit
 from prepare_transport_data import prepare_transport_data
 
 logger = logging.getLogger(__name__)
@@ -510,11 +511,11 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Bus",
-                nodes + " H2 UHS",
-                location=nodes,
+                spatial.nodes + " H2 UHS",
+                location=spatial.nodes,
                 carrier="H2 UHS",
-                x=n.buses.loc[list(nodes)].x.values,
-                y=n.buses.loc[list(nodes)].y.values,
+                x=n.buses.loc[list(spatial.nodes)].x.values,
+                y=n.buses.loc[list(spatial.nodes)].y.values,
             )
 
             n.madd(
@@ -530,9 +531,9 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Link",
-                nodes + " H2 UHS charger",
-                bus0=nodes + " H2",
-                bus1=nodes + " H2 UHS",
+                spatial.nodes + " H2 UHS charger",
+                bus0=spatial.nodes + " H2",
+                bus1=spatial.nodes + " H2 UHS",
                 carrier="H2 UHS charger",
                 # efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
                 # capital_cost=costs.at["battery inverter", "fixed"],
@@ -542,9 +543,9 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Link",
-                nodes + " H2 UHS discharger",
-                bus0=nodes + " H2 UHS",
-                bus1=nodes + " H2",
+                spatial.nodes + " H2 UHS discharger",
+                bus0=spatial.nodes + " H2 UHS",
+                bus1=spatial.nodes + " H2",
                 carrier="H2 UHS discharger",
                 efficiency=1,
                 # capital_cost=costs.at["battery inverter", "fixed"],
@@ -578,11 +579,11 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Bus",
-                nodes + " H2 UHS",
-                location=nodes,
+                spatial.nodes + " H2 UHS",
+                location=spatial.nodes,
                 carrier="H2 UHS",
-                x=n.buses.loc[list(nodes)].x.values,
-                y=n.buses.loc[list(nodes)].y.values,
+                x=n.buses.loc[list(spatial.nodes)].x.values,
+                y=n.buses.loc[list(spatial.nodes)].y.values,
             )
 
             n.madd(
@@ -598,9 +599,9 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Link",
-                nodes + " H2 UHS charger",
-                bus0=nodes,
-                bus1=nodes + " H2 UHS",
+                spatial.nodes + " H2 UHS charger",
+                bus0=spatial.nodes,
+                bus1=spatial.nodes + " H2 UHS",
                 carrier="H2 UHS charger",
                 # efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
                 capital_cost=0,
@@ -610,9 +611,9 @@ def add_hydrogen(n, costs):
 
             n.madd(
                 "Link",
-                nodes + " H2 UHS discharger",
-                bus0=nodes,
-                bus1=nodes + " H2 UHS",
+                spatial.nodes + " H2 UHS discharger",
+                bus0=spatial.nodes,
+                bus1=spatial.nodes + " H2 UHS",
                 carrier="H2 UHS discharger",
                 efficiency=1,
                 capital_cost=0,
@@ -624,7 +625,7 @@ def add_hydrogen(n, costs):
     h2_capital_cost = costs.at[
         "hydrogen storage tank type 1 including compressor", "fixed"
     ]
-    nodes_overground = nodes
+    nodes_overground = spatial.nodes
     n.madd(
         "Store",
         nodes_overground + " H2 Store Tank",
@@ -1300,9 +1301,7 @@ def add_aviation(n, cost, energy_totals, airports_fn):
 
     all_aviation = ["total international aviation", "total domestic aviation"]
 
-    aviation_demand = (
-        energy_totals.loc[countries, all_aviation].sum(axis=1).sum()  # * 1e6 / 8760
-    )
+    aviation_demand = energy_totals.loc[countries, all_aviation].sum(axis=1)
 
     airports = pd.read_csv(airports_fn, keep_default_na=False)
     airports = airports[airports.country.isin(countries)]
@@ -1321,8 +1320,8 @@ def add_aviation(n, cost, energy_totals, airports_fn):
     ind = pd.DataFrame(n.buses.index[n.buses.carrier == "AC"])
 
     ind = ind.set_index(n.buses.index[n.buses.carrier == "AC"])
-    airports["p_set"] = airports["fraction"].apply(
-        lambda frac: frac * aviation_demand * 1e6 / 8760
+    airports["p_set"] = (
+        airports["fraction"] * airports["country"].map(aviation_demand) * 1e6 / 8760
     )
 
     airports = pd.concat([airports, ind])
@@ -1682,9 +1681,7 @@ def add_shipping(n, costs, energy_totals, ports_fn):
 
     all_navigation = ["total international navigation", "total domestic navigation"]
 
-    navigation_demand = (
-        energy_totals.loc[countries, all_navigation].sum(axis=1).sum()  # * 1e6 / 8760
-    )
+    navigation_demand = energy_totals.loc[countries, all_navigation].sum(axis=1)
 
     efficiency = (
         options["shipping_average_efficiency"] / costs.at["fuel cell", "efficiency"]
@@ -1706,10 +1703,10 @@ def add_shipping(n, costs, energy_totals, ports_fn):
     ind = pd.DataFrame(n.buses.index[n.buses.carrier == "AC"])
     ind = ind.set_index(n.buses.index[n.buses.carrier == "AC"])
 
-    ports["p_set"] = ports["fraction"].apply(
-        lambda frac: shipping_hydrogen_share
-        * frac
-        * navigation_demand
+    ports["p_set"] = (
+        shipping_hydrogen_share
+        * ports["fraction"]
+        * ports["country"].map(navigation_demand)
         * efficiency
         * 1e6
         / 8760
@@ -1763,8 +1760,12 @@ def add_shipping(n, costs, energy_totals, ports_fn):
     if shipping_hydrogen_share < 1:
         shipping_oil_share = 1 - shipping_hydrogen_share
 
-        ports["p_set"] = ports["fraction"].apply(
-            lambda frac: shipping_oil_share * frac * navigation_demand * 1e6 / 8760
+        ports["p_set"] = (
+            shipping_oil_share
+            * ports["fraction"]
+            * ports["country"].map(navigation_demand)
+            * 1e6
+            / 8760
         )
 
         n.madd(
@@ -1969,9 +1970,9 @@ def add_industry(
     ):
         n.madd(
             "Load",
-            nodes,
+            spatial.nodes,
             suffix=" H2 for industry",
-            bus=nodes + " H2",
+            bus=spatial.nodes + " H2",
             carrier="H2 for industry",
             p_set=industrial_demand["hydrogen"].apply(lambda frac: frac / 8760),
         )
@@ -2293,13 +2294,13 @@ def add_land_transport(
         ):
             n.madd(
                 "Load",
-                nodes,
+                spatial.nodes,
                 suffix=" land transport fuel cell",
-                bus=nodes + " H2",
+                bus=spatial.nodes + " H2",
                 carrier="land transport fuel cell",
                 p_set=fuel_cell_share
                 / options["transport_fuel_cell_efficiency"]
-                * transport[nodes],
+                * transport[spatial.nodes],
             )
 
     if ice_share > 0:
@@ -3078,21 +3079,20 @@ def add_residential(n, costs, energy_totals):
 
 def add_electricity_distribution_grid(n, costs):
     logger.info("Adding electricity distribution network")
-    nodes = pop_layout.index
 
     n.madd(
         "Bus",
-        nodes + " low voltage",
-        location=nodes,
+        spatial.nodes + " low voltage",
+        location=spatial.nodes,
         carrier="low voltage",
         unit="MWh_el",
     )
 
     n.madd(
         "Link",
-        nodes + " electricity distribution grid",
-        bus0=nodes,
-        bus1=nodes + " low voltage",
+        spatial.nodes + " electricity distribution grid",
+        bus0=spatial.nodes,
+        bus1=spatial.nodes + " low voltage",
         p_nom_extendable=True,
         p_min_pu=-1,
         carrier="electricity distribution grid",
@@ -3168,17 +3168,17 @@ def add_electricity_distribution_grid(n, costs):
 
         n.madd(
             "Bus",
-            nodes + " home battery",
-            location=nodes,
+            spatial.nodes + " home battery",
+            location=spatial.nodes,
             carrier="home battery",
             unit="MWh_el",
         )
 
         n.madd(
             "Store",
-            nodes + " home battery",
-            bus=nodes + " home battery",
-            location=nodes,
+            spatial.nodes + " home battery",
+            bus=spatial.nodes + " home battery",
+            location=spatial.nodes,
             e_cyclic=True,
             e_nom_extendable=True,
             carrier="home battery",
@@ -3188,9 +3188,9 @@ def add_electricity_distribution_grid(n, costs):
 
         n.madd(
             "Link",
-            nodes + " home battery charger",
-            bus0=nodes + " low voltage",
-            bus1=nodes + " home battery",
+            spatial.nodes + " home battery charger",
+            bus0=spatial.nodes + " low voltage",
+            bus1=spatial.nodes + " home battery",
             carrier="home battery charger",
             efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
             capital_cost=costs.at["home battery inverter", "fixed"],
@@ -3200,9 +3200,9 @@ def add_electricity_distribution_grid(n, costs):
 
         n.madd(
             "Link",
-            nodes + " home battery discharger",
-            bus0=nodes + " home battery",
-            bus1=nodes + " low voltage",
+            spatial.nodes + " home battery discharger",
+            bus0=spatial.nodes + " home battery",
+            bus1=spatial.nodes + " low voltage",
             carrier="home battery discharger",
             efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
             marginal_cost=options["marginal_cost_storage"],
@@ -3211,27 +3211,43 @@ def add_electricity_distribution_grid(n, costs):
         )
 
 
-# def add_co2limit(n, Nyears=1.0, limit=0.0):
-#     print("Adding CO2 budget limit as per unit of 1990 levels of", limit)
+def add_co2_budget(n, co2_budget, investment_year, elec_opts):
+    # Check if CO2Limit already exists
+    if "CO2Limit" in n.global_constraints.index:
+        if co2_budget["override_co2opt"]:
+            logger.warning("CO2Limit already exists, value will be overwritten.")
+            n.global_constraints.drop(index="CO2Limit", inplace=True)
+        else:
+            logger.info("CO2Limit already exists, value will not be overwritten.")
+            return
 
-#     countries = n.buses.country.dropna().unique()
+    # Get base year emission factor
+    factor = (
+        co2_budget["year"][investment_year]
+        if investment_year in co2_budget["year"]
+        else 1.0
+    )
 
-#     sectors = emission_sectors_from_opts(opts)
+    co2base_value = co2_budget["co2base_value"]
+    if co2base_value == "co2limit":
+        annual_emissions = factor * elec_opts["co2limit"]
+    elif co2base_value == "co2base":
+        annual_emissions = factor * elec_opts["co2base"]
+    elif co2base_value == "absolute":
+        annual_emissions = factor
+    elif isinstance(co2base_value, float):
+        annual_emissions = factor * co2base_value
+    else:
+        raise ValueError(
+            f"co2base_value: {co2base_value} is not an option for co2_budget"
+        )
 
-#     # convert Mt to tCO2
-#     co2_totals = 1e6 * pd.read_csv(snakemake.input.co2_totals_name, index_col=0)
+    Nyears = n.snapshot_weightings.objective.sum() / 8760.0
+    logger.info(
+        f"Annual emissions for {investment_year} set to {annual_emissions / 1e6:.2f} MtCO₂-eq/year."
+    )
 
-#     co2_limit = co2_totals.loc[countries, sectors].sum().sum()
-
-#     co2_limit *= limit * Nyears
-
-#     n.add(
-#         "GlobalConstraint",
-#         "CO2Limit",
-#         carrier_attribute="co2_emissions",
-#         sense="<=",
-#         constant=co2_limit,
-#     )
+    add_co2limit(n, annual_emissions, Nyears)
 
 
 def add_custom_water_cost(n):
@@ -3393,7 +3409,7 @@ if __name__ == "__main__":
     # countries = list(n.buses.country.unique())
     countries = snakemake.params.countries
     # Locate all the AC buses
-    nodes = n.buses[
+    acnodes = n.buses[
         n.buses.carrier == "AC"
     ].index  # TODO if you take nodes from the index of buses of n it's more than pop_layout
     # clustering of regions must be double checked.. refer to regions onshore
@@ -3402,10 +3418,10 @@ if __name__ == "__main__":
     n.buses.location = n.buses.index
 
     # Set carrier of AC loads
-    existing_nodes = [node for node in nodes if node in n.loads.index]
-    if len(existing_nodes) < len(nodes):
+    existing_nodes = [node for node in acnodes if node in n.loads.index]
+    if len(existing_nodes) < len(acnodes):
         print(
-            "fWarning: For {len(nodes) - len(existing_nodes)} of {len(nodes)} nodes there were no load nodes found in network and were skipped."
+            f"Warning: For {len(acnodes) - len(existing_nodes)} of {len(acnodes)} nodes there were no load nodes found in network and were skipped."
         )
     n.loads.loc[existing_nodes, "carrier"] = "AC"
 
@@ -3560,18 +3576,14 @@ if __name__ == "__main__":
             n = average_every_nhours(n, m.group(0))
             break
 
-    # TODO add co2 limit here, if necessary
-    # co2_limit_pu = eval(sopts[0][5:])
-    # co2_limit = co2_limit_pu *
-    # # Add co2 limit
-    # co2_limit = 1e9
-    # n.add(
-    #     "GlobalConstraint",
-    #     "CO2Limit",
-    #     carrier_attribute="co2_emissions",
-    #     sense="<=",
-    #     constant=co2_limit,
-    # )
+    co2_budget = snakemake.params.co2_budget
+    if co2_budget["enable"]:
+        add_co2_budget(
+            n,
+            co2_budget,
+            investment_year,
+            snakemake.params.electricity,
+        )
 
     if options["dac"]:
         add_dac(n, costs)
