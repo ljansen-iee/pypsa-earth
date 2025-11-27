@@ -240,7 +240,9 @@ def check_cutout_match(cutout, geodf):
 
 def get_eia_annual_hydro_generation(fn, countries):
     # in billion kWh/a = TWh/a
-    df = read_csv_nafix(fn, skiprows=1, index_col=1, na_values=[" ", "--"]).iloc[1:, 1:]
+    df = read_csv_nafix(fn, skiprows=1, index_col=1, na_values=[" ", "--"])
+    df = df.apply(pd.to_numeric, errors="coerce")
+    df = df.iloc[1:, 1:]
     df.index = df.index.str.strip()
 
     df.loc["Germany"] = df.filter(like="Germany", axis=0).sum()
