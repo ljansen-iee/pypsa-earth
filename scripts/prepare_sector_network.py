@@ -938,9 +938,9 @@ def add_hydrogen(n, costs):
         # Order buses to detect equal pairs for bidirectional pipelines
         buses_ordered = h2_links.apply(lambda p: sorted([p.bus0, p.bus1]), axis=1)
         if len(h2_links) > 0:
-            # # Appending string for carrier specification '_AC', because hydrogen has _AC in bus names
-            # h2_links["bus0"] = buses_ordered.str[0] + "_AC"
-            # h2_links["bus1"] = buses_ordered.str[1] + "_AC"
+            # Appending string for carrier specification '_AC', because hydrogen has _AC in bus names
+            h2_links["bus0"] = buses_ordered.str[0] + "_AC"
+            h2_links["bus1"] = buses_ordered.str[1] + "_AC"
 
             # Create index column
             h2_links["buses_idx"] = (
