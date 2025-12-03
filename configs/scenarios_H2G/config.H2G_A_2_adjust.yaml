@@ -426,7 +426,7 @@ costs:
   - 2035
   - 2050
   technology_data_version: v0.13.2
-  discountrate: [an LAND anpassen?] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [Sensitivity] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   country_specific_data: "" # (optional) Reference to the desired technology-data directory for techno-economic input data; Only "" and "US" supported, for other values check the technology-data output directory
   # Only needed if "US" is selected as `country_specific_data`, otherwise ignore
   cost_scenario: "moderate" # only used if `country_specific_data: "US"`; can be "moderate", "advanced" or "conservative"
@@ -436,7 +436,7 @@ costs:
   default_exchange_rate: 0.7532 # previously USD2013_to_EUR2013; should be sufficient as current data from 'technology-data` are either in EUR or USD; [EUR/USD] ECB: https://www.ecb.europa.eu/stats/exchange/eurofxref/html/eurofxref-graph-usd.en.html
   future_exchange_rate_strategy: "reference" # reference uses the exchange rate from `reference_year` for all conversions, ensuring all costs are expressed in the same currency and year; "latest" uses the yearly average of the latest available exchange rates for the selected `output_currency`; "custom" allows to specify a `custom_future_exchange_rate` below
   custom_future_exchange_rate: None # if `future_exchange_rate_strategy: "custom"`, please insert here the desired output_currency-to-EUR exchange rate
-  rooftop_share: 0.14 # based on the potentials, assuming (0.1 kW/m2 and 10 m2/person)
+  rooftop_share: 0.05 # based on the potentials, assuming (0.1 kW/m2 and 10 m2/person)
   fill_values:
     FOM: 0
     VOM: 0
@@ -614,9 +614,9 @@ sector:
   hydrogen:
     network: true
     H2_retrofit_capacity_per_CH4: 0.6
-    network_limit: 2000 #GWkm
-    network_routes: gas # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
-    gas_network_repurposing: true # If true -> ["sector"]["gas"]["network"] is automatically false
+    network_limit: 100000 #GWkm 
+    network_routes: greenfield # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
+    gas_network_repurposing: false # If true -> ["sector"]["gas"]["network"] is automatically false
     underground_storage:
       enabled: true
       # calculations based on https://doi.org/10.1016/j.ijhydene.2019.12.161
@@ -850,7 +850,7 @@ sector:
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 
   airport_sizing_factor: 3
   fischer_tropsch: true
-  min_part_load_fischer_tropsch: 0
+  min_part_load_fischer_tropsch: 0.5
 
   conventional_generation: # generator : carrier
     OCGT: gas
@@ -859,7 +859,7 @@ sector:
     coal: coal
     lignite: lignite
     biomass: biomass
-  keep_existing_capacities: false
+  keep_existing_capacities: true
 
 solving:
   options:
@@ -894,7 +894,8 @@ solving:
       threads: 16
       method: 2 # barrier
       crossover: 0
-      BarConvTol: 1.e-6
+      BarConvTol: 1.e-5
+      OptimalityTol: 1.e-5
       Seed: 123
       AggFill: 0
       PreDual: 0
