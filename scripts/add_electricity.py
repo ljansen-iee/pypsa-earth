@@ -150,7 +150,7 @@ def load_costs(tech_costs, config, elec_config, Nyears=1):
     """
     Set all asset costs and other parameters.
     """
-    costs = pd.read_csv(tech_costs, index_col=["technology", "parameter"]).sort_index()
+    costs = read_csv_nafix(tech_costs, index_col=["technology", "parameter"]).sort_index()
 
     # correct units to MW and output_currency
     costs.loc[costs.unit.str.contains("/kW"), "value"] *= 1e3
@@ -604,7 +604,7 @@ def attach_hydro(n, costs, ppl):
     if "hydro" in carriers and not hydro.empty:
         hydro_max_hours = c.get("hydro_max_hours")
         hydro_stats = (
-            pd.read_csv(
+            read_csv_nafix(
                 snakemake.input.hydro_capacities,
                 comment="#",
                 na_values=["-"],

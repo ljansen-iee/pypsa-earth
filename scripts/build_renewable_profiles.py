@@ -202,7 +202,7 @@ import numpy as np
 import pandas as pd
 import progressbar as pgb
 import xarray as xr
-from _helpers import BASE_DIR, configure_logging, create_logger
+from _helpers import BASE_DIR, configure_logging, create_logger, read_csv_nafix
 from add_electricity import load_powerplants
 from dask.distributed import Client
 from pypsa.geo import haversine
@@ -240,7 +240,9 @@ def check_cutout_match(cutout, geodf):
 
 def get_eia_annual_hydro_generation(fn, countries):
     # in billion kWh/a = TWh/a
-    df = pd.read_csv(fn, skiprows=1, index_col=1, na_values=[" ", "--"]).iloc[1:, 1:]
+    df = read_csv_nafix(fn, skiprows=1, index_col=1, na_values=[" ", "--"])
+    df = df.apply(pd.to_numeric, errors="coerce")
+    df = df.iloc[1:, 1:]
     df.index = df.index.str.strip()
 
     df.loc["Germany"] = df.filter(like="Germany", axis=0).sum()
@@ -259,7 +261,7 @@ def get_eia_annual_hydro_generation(fn, countries):
 
 def get_hydro_capacities_annual_hydro_generation(fn, countries, year):
     hydro_stats = (
-        pd.read_csv(
+        read_csv_nafix(
             fn,
             comment="#",
             keep_default_na=False,

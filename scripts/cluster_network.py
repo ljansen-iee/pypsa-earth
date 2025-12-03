@@ -138,6 +138,7 @@ from _helpers import (
     nearest_shape,
     update_config_dictionary,
     update_p_nom_max,
+    read_csv_nafix,
 )
 from add_electricity import load_costs
 from build_shapes import add_gdp_data, add_population_data
@@ -721,7 +722,7 @@ if __name__ == "__main__":
 
         custom_busmap = snakemake.params.custom_busmap
         if custom_busmap:
-            busmap = pd.read_csv(snakemake.input.custom_busmap, index_col=0).squeeze()
+            busmap = read_csv_nafix(snakemake.input.custom_busmap, index_col=0).squeeze()
             busmap.index = busmap.index.astype(str)
             logger.info(f"Imported custom busmap from {snakemake.input.custom_busmap}")
             custom_busmap = busmap

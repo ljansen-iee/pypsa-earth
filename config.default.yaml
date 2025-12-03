@@ -523,6 +523,7 @@ custom_data:
   industry_database: false
   transport_demand: false
   water_costs: false
+  h2_water_network: false
   h2_underground: false
   add_existing: false
   custom_sectors: false
@@ -575,7 +576,11 @@ sector:
     network_routes: gas # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
     gas_network_repurposing: true # If true -> ["sector"]["gas"]["network"] is automatically false
     underground_storage: false
+    aqueduct_water_stress_classification: # ["above_40"] # If "True" then the water stress classification is used to determine the water availability for desalination
     hydrogen_colors: false
+    water_network: true
+    custom_water_network: false
+    ratio_water_hydrogen: 13 # liters of water per kg of hydrogen, see: https://www.plugpower.com/wp-content/uploads/2021/10/EX-4250D_F041122.pdf
     set_color_shares: false
     blue_share: 0.40
     pink_share: 0.05
@@ -954,6 +959,7 @@ plotting:
     Lignite: "grey"
     Lignite marginal: "grey"
     H2: "#ea048a"
+    H2 export: "#ea048a"
     H2 for industry: "#222222"
     H2 for shipping: "#6495ED"
     H2 liquefaction: "m"
@@ -961,7 +967,7 @@ plotting:
     battery: "slategray"
     battery discharger: "slategray"
     battery charger: "slategray"
-    battery storage: "slategray"
+    EV battery storage: "slategray"
     home battery: "#614700"
     home battery storage: "#614700"
     lines: "#70af1d"
@@ -1062,6 +1068,6 @@ plotting:
     PHS: Pumped Hydro Storage
     hydro: Reservoir & Dam
     battery: Battery Storage
-    H2: Hydrogen Storage
+    H2: H2
     lines: Transmission Lines
     ror: Run of River
