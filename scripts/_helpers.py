@@ -768,7 +768,10 @@ def read_csv_nafix(file, **kwargs):
     if "na_values" not in kwargs:
         kwargs["na_values"] = NA_VALUES
 
-    if os.stat(file).st_size > 0:
+    if isinstance(file, str) and (file.startswith("http://") or file.startswith("https://")):
+        return pd.read_csv(file, **kwargs)
+
+    if os.path.exists(file) and os.stat(file).st_size > 0:
         return pd.read_csv(file, **kwargs)
     else:
         return pd.DataFrame()
@@ -1150,7 +1153,7 @@ def prepare_costs(
     Applies currency conversion, fills missing values, and computes fixed annualized costs.
     Always uses the module-level reference_year.
     """
-    costs = pd.read_csv(cost_file, index_col=[0, 1]).sort_index()
+    costs = read_csv_nafix(cost_file, index_col=[0, 1]).sort_index()
 
     # correct units to MW
     costs.loc[costs.unit.str.contains("/kW"), "value"] *= 1e3
@@ -1372,7 +1375,7 @@ def override_component_attrs(directory):
     for component, list_name in components.list_name.items():
         fn = f"{directory}/{list_name}.csv"
         if os.path.isfile(fn):
-            overrides = pd.read_csv(fn, index_col=0, na_values="n/a")
+            overrides = read_csv_nafix(fn, index_col=0, na_values="n/a")
             attrs[component] = overrides.combine_first(attrs[component])
 
     return attrs

@@ -615,7 +615,7 @@ sector:
     hydrogen_colors: false
     water_network: true
     custom_water_network: false
-    ratio_water_hydrogen: 10 # liters of water per kg of hydrogen, see: https://dechema.de/-p-20395331-EGOTEC-f36ccaaaa9d2d4d47e232bb9a6bb029b/_/report%20seawater%20brine%20treatment%20and%20disposal%20in%20Namibia%20(1).pdf
+    ratio_water_hydrogen: 13 # liters of water per kg of hydrogen, see: https://www.plugpower.com/wp-content/uploads/2021/10/EX-4250D_F041122.pdf
     set_color_shares: false
     blue_share: 0.40
     pink_share: 0.05

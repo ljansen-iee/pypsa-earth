@@ -22,6 +22,7 @@ from _helpers import (
     content_retrieve,
     progress_retrieve,
     two_2_three_digits_country,
+    read_csv_nafix,
 )
 
 
@@ -162,7 +163,7 @@ if __name__ == "__main__":
     regions_onshore_aqueduct_desalination = gpd.read_file(snakemake.input.regions_onshore_aqueduct_desalination)
     clustered_water_network = gpd.read_file(snakemake.input.clustered_water_network)
     shorelines_natura = gpd.read_file(snakemake.input.shorelines_natura)
-    water_pipes_profiles = pd.read_csv(snakemake.input.water_pipes_profiles, index_col=0)
+    water_pipes_profiles = read_csv_nafix(snakemake.input.water_pipes_profiles, index_col=0)
 
 
     # Convert the 'centroid' column from WKT to geometry

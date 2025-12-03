@@ -286,8 +286,13 @@ The documentation is available here: [documentation](https://pypsa-earth.readthe
                     <sub><b>energyLS</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
+		    <td align="center">
+                <a href="https://github.com/AnasAlgarei">
+                    <img src="https://avatars.githubusercontent.com/u/101210563?v=4" width="100;" alt="AnasAlgarei"/>
+                    <br />
+                    <sub><b>AnasAlgarei</b></sub>
+                </a>
+            </td>
             <td align="center">
                 <a href="https://github.com/yerbol-akhmetov">
                     <img src="https://avatars.githubusercontent.com/u/113768325?v=4" width="100;" alt="yerbol-akhmetov"/>

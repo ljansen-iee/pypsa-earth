@@ -1268,9 +1268,16 @@ rule prepare_sector_network:
                 + "gas_networks/gas_network_elec_s{simpl}_{clusters}.csv",
             ),
         ),
-        clustered_water_network="resources/"
-        + SECDIR
-        + "water_networks/water_network_elec_s{simpl}_{clusters}.geojson",
+        **(
+            {
+                "clustered_water_network":
+                "resources/"
+                + SECDIR
+                + "water_networks/water_network_elec_s{simpl}_{clusters}.geojson"
+            }
+            if config["sector"]["hydrogen"]["water_network"]
+            else {}
+        ),
     output:
         RESDIR
         + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}.nc",
