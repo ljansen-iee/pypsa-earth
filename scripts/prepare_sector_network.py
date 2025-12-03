@@ -7,6 +7,7 @@
 import logging
 import os
 import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -70,27 +71,29 @@ def add_carrier_buses(n, carrier, nodes=None):
 
     n.madd("Bus", nodes, location=location, carrier=carrier)
 
-    # initial fossil reserves
-    e_initial = (snakemake.params.fossil_reserves).get(carrier, 0) * 1e6
-    # capital cost could be corrected to e.g. 0.2 EUR/kWh * annuity and O&M
-    n.madd(
-        "Store",
-        nodes + " Store",
-        bus=nodes,
-        e_nom_extendable=True,
-        e_cyclic=True if e_initial == 0 else False,
-        carrier=carrier,
-        e_initial=e_initial,
-    )
+    ## Do not execute this if the carrier is biomass
 
-    n.madd(
-        "Generator",
-        nodes,
-        bus=nodes,
-        p_nom_extendable=True,
-        carrier=carrier,
-        marginal_cost=costs.at[carrier, "fuel"],
-    )
+    if carrier != "biomass":
+        # initial fossil reserves
+        e_initial = (snakemake.params.fossil_reserves).get(carrier, 0) * 1e6
+        # capital cost could be corrected to e.g. 0.2 EUR/kWh * annuity and O&M
+        n.madd(
+            "Store",
+            nodes + " Store",
+            bus=nodes,
+            e_nom_extendable=True,
+            e_cyclic=True if e_initial == 0 else False,
+            carrier=carrier,
+            e_initial=e_initial,
+        )
+        n.madd(
+            "Generator",
+            nodes,
+            bus=nodes,
+            p_nom_extendable=True,
+            carrier=carrier,
+            marginal_cost=costs.at[carrier, "fuel"],
+        )
 
 
 def add_generation(
@@ -716,10 +719,23 @@ def add_hydrogen(n, costs):
         lifetime=costs.at["fuel cell", "lifetime"],
     )
 
-    cavern_nodes = pd.DataFrame()
+    n.madd(
+        "Link",
+        spatial.nodes + " H2 turbine",
+        bus0=spatial.nodes + " H2",
+        bus1=spatial.nodes,
+        p_nom_extendable=True,
+        carrier="H2 turbine",
+        efficiency=costs.at["OCGT", "efficiency"],
+        capital_cost=costs.at["OCGT", "fixed"]
+        * costs.at["OCGT", "efficiency"],  # NB: fixed cost is per MWel
+        marginal_cost=costs.at["OCGT", "VOM"],
+        lifetime=costs.at["OCGT", "lifetime"],
+    )
 
-    if snakemake.params.sector_options["hydrogen"]["underground_storage"]:
+    if snakemake.params.sector_options["hydrogen"]["underground_storage"]["enabled"]:
         if snakemake.params.h2_underground:
+            cavern_nodes = pd.DataFrame()
             custom_cavern = read_csv_nafix(
                 os.path.join(
                     BASE_DIR,
@@ -743,116 +759,63 @@ def add_hydrogen(n, costs):
             # n.add("Carrier", "H2 UHS")
 
             n.madd(
-                "Bus",
-                spatial.nodes + " H2 UHS",
-                location=spatial.nodes,
-                carrier="H2 UHS",
-                x=n.buses.loc[list(spatial.nodes)].x.values,
-                y=n.buses.loc[list(spatial.nodes)].y.values,
-            )
-
-            n.madd(
                 "Store",
                 cavern_nodes.index + " H2 UHS",
-                bus=cavern_nodes.index + " H2 UHS",
+                bus=cavern_nodes.index + " H2",
                 e_nom_extendable=True,
                 e_nom_max=h2_pot.values,
                 e_cyclic=True,
                 carrier="H2 UHS",
                 capital_cost=h2_capital_cost,
-            )
-
-            n.madd(
-                "Link",
-                spatial.nodes + " H2 UHS charger",
-                bus0=spatial.nodes + " H2",
-                bus1=spatial.nodes + " H2 UHS",
-                carrier="H2 UHS charger",
-                # efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
-                # capital_cost=costs.at["battery inverter", "fixed"],
-                p_nom_extendable=True,
-                # lifetime=costs.at["battery inverter", "lifetime"],
-            )
-
-            n.madd(
-                "Link",
-                spatial.nodes + " H2 UHS discharger",
-                bus0=spatial.nodes + " H2 UHS",
-                bus1=spatial.nodes + " H2",
-                carrier="H2 UHS discharger",
-                efficiency=1,
-                # capital_cost=costs.at["battery inverter", "fixed"],
-                p_nom_extendable=True,
-                # lifetime=costs.at["battery inverter", "lifetime"],
+                lifetime=costs.at["hydrogen storage underground", "lifetime"],
             )
 
         else:
-            h2_salt_cavern_potential = read_csv_nafix(
-                snakemake.input.h2_cavern, index_col=0
-            ).squeeze()
-            h2_cavern_ct = h2_salt_cavern_potential[~h2_salt_cavern_potential.isna()]
-            cavern_nodes = n.buses[n.buses.country.isin(h2_cavern_ct.index)]
+            cavern_types = snakemake.params.sector_options["hydrogen"][
+                "underground_storage"
+            ]["locations"]
+            h2_caverns = read_csv_nafix(snakemake.input.h2_cavern, index_col=0)
+            if not h2_caverns.empty and set(cavern_types).intersection(
+                h2_caverns.columns
+            ):
+                available_caverns = [c for c in cavern_types if c in h2_caverns.columns]
+                h2_caverns = h2_caverns[available_caverns].sum(axis=1)
 
-            h2_capital_cost = costs.at["hydrogen storage underground", "fixed"]
+                # only use sites with at least 2 TWh potential
+                h2_caverns = h2_caverns[h2_caverns > 2]
 
-            # assumptions: weight storage potential in a country by population
-            # TODO: fix with real geographic potentials
-            # convert TWh to MWh with 1e6
-            h2_pot = h2_cavern_ct.loc[cavern_nodes.country]
-            h2_pot.index = cavern_nodes.index
+                # convert TWh to MWh
+                h2_caverns = h2_caverns * 1e6
 
-            # distribute underground potential equally over all nodes #TODO change with real data
-            s = pd.Series(h2_pot.index, index=h2_pot.index)
-            country_codes = s.str[:2]
-            code_counts = country_codes.value_counts()
-            fractions = country_codes.map(code_counts).rdiv(1)
-            h2_pot = h2_pot * fractions * 1e6
+                # clip at 1000 TWh for one location
+                h2_caverns.clip(upper=1e9, inplace=True)
 
-            # n.add("Carrier", "H2 UHS")
+                logger.info("Add hydrogen underground storage")
 
-            n.madd(
-                "Bus",
-                spatial.nodes + " H2 UHS",
-                location=spatial.nodes,
-                carrier="H2 UHS",
-                x=n.buses.loc[list(spatial.nodes)].x.values,
-                y=n.buses.loc[list(spatial.nodes)].y.values,
-            )
+                h2_capital_cost = costs.at["hydrogen storage underground", "fixed"]
 
-            n.madd(
-                "Store",
-                cavern_nodes.index + " H2 UHS",
-                bus=cavern_nodes.index + " H2 UHS",
-                e_nom_extendable=True,
-                e_nom_max=h2_pot.values,
-                e_cyclic=True,
-                carrier="H2 UHS",
-                capital_cost=h2_capital_cost,
-            )
+                # n.add("Carrier", "H2 UHS")
 
-            n.madd(
-                "Link",
-                spatial.nodes + " H2 UHS charger",
-                bus0=spatial.nodes,
-                bus1=spatial.nodes + " H2 UHS",
-                carrier="H2 UHS charger",
-                # efficiency=costs.at["battery inverter", "efficiency"] ** 0.5,
-                capital_cost=0,
-                p_nom_extendable=True,
-                # lifetime=costs.at["battery inverter", "lifetime"],
-            )
+                # n.madd(
+                #     "Bus",
+                #     spatial.h2.nodes + " H2 UHS",
+                #     location=spatial.h2.nodes,
+                #     carrier="H2 UHS",
+                #     x=n.buses.loc[list(spatial.h2.nodes)].x.values,
+                #     y=n.buses.loc[list(spatial.h2.nodes)].y.values,
+                # )
 
-            n.madd(
-                "Link",
-                spatial.nodes + " H2 UHS discharger",
-                bus0=spatial.nodes,
-                bus1=spatial.nodes + " H2 UHS",
-                carrier="H2 UHS discharger",
-                efficiency=1,
-                capital_cost=0,
-                p_nom_extendable=True,
-                # lifetime=costs.at["battery inverter", "lifetime"],
-            )
+                n.madd(
+                    "Store",
+                    h2_caverns.index + " H2 UHS",
+                    bus=h2_caverns.index + " H2",
+                    e_nom_extendable=True,
+                    e_nom_max=h2_caverns.values,
+                    e_cyclic=True,
+                    carrier="H2 UHS",
+                    capital_cost=h2_capital_cost,
+                    lifetime=costs.at["hydrogen storage underground", "lifetime"],
+                )
 
     # hydrogen stored overground (where not already underground)
     h2_capital_cost = costs.at[
@@ -3325,12 +3288,12 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "prepare_sector_network",
             simpl="",
-            clusters="13",
+            clusters="24",
             ll="copt",
             opts="Co2L0.15",
             planning_horizons="2050",
             sopts="3H",
-            discountrate=0.086,
+            discountrate=0.094,
             demand="NZ",
         )
 
@@ -3445,8 +3408,8 @@ if __name__ == "__main__":
 
     add_generation(n, costs, existing_capacities, existing_efficiencies, existing_nodes)
 
-    # remove H2 and battery technologies added in elec-only model
-    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery"])
+    # remove H2, battery and biomass technologies added in elec-only model
+    remove_carrier_related_components(n, carriers_to_drop=["H2", "battery", "biomass"])
 
     add_hydrogen(n, costs)  # TODO add costs
 
