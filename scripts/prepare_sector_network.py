@@ -172,6 +172,15 @@ def add_generation(
         # set the "co2_emissions" of the carrier to 0, as emissions are accounted by link efficiency separately (efficiency to 'co2 atmosphere' bus)
         n.carriers.loc[carrier, "co2_emissions"] = 0
 
+def add_electricity_grid_connection(n, costs):
+    carriers = ["onwind", "solar"]
+
+    gens = n.generators.index[n.generators.carrier.isin(carriers)]
+
+    n.generators.loc[gens, "capital_cost"] += costs.at[
+        "electricity grid connection", "fixed"
+    ]
+    logger.info("Added electricity grid connection costs for solar and wind generators")
 
 def H2_liquid_fossil_conversions(n, costs):
     """
@@ -3488,6 +3497,9 @@ if __name__ == "__main__":
 
     if options.get("electricity_distribution_grid", False):
         add_electricity_distribution_grid(n, costs)
+
+    if options["electricity_grid_connection"]:
+        add_electricity_grid_connection(n, costs)
 
     sopts = snakemake.wildcards.sopts.split("-")
 
