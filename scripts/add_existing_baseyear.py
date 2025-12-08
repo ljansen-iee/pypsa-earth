@@ -17,7 +17,7 @@ import pandas as pd
 import powerplantmatching as pm
 import pypsa
 import xarray as xr
-from _helpers import sanitize_carriers, sanitize_locations
+from _helpers import read_csv_nafix, sanitize_carriers, sanitize_locations
 
 # from _helpers import (
 #     configure_logging,
@@ -139,7 +139,7 @@ def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, bas
         f"Adding power capacities installed before {baseyear} from powerplants.csv"
     )
 
-    df_agg = pd.read_csv(snakemake.input.powerplants, index_col=0)
+    df_agg = read_csv_nafix(snakemake.input.powerplants, index_col=0)
 
     rename_fuel = {
         "Hard Coal": "coal",
@@ -194,8 +194,8 @@ def add_power_capacities_installed_before_baseyear(n, grouping_years, costs, bas
     df_agg.drop(phased_out, inplace=True)
 
     # assign clustered bus
-    busmap_s = pd.read_csv(snakemake.input.busmap_s, index_col=0).squeeze()
-    busmap = pd.read_csv(snakemake.input.busmap, index_col=0).squeeze()
+    busmap_s = read_csv_nafix(snakemake.input.busmap_s, index_col=0).squeeze()
+    busmap = read_csv_nafix(snakemake.input.busmap, index_col=0).squeeze()
 
     inv_busmap = {}
     for k, v in busmap.items():
@@ -438,7 +438,7 @@ def add_heating_capacities_installed_before_baseyear(
     """
     logger.debug(f"Adding heating capacities installed before {baseyear}")
 
-    existing_heating = pd.read_csv(
+    existing_heating = read_csv_nafix(
         snakemake.input.existing_heating_distribution, header=[0, 1], index_col=0
     )
 

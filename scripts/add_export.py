@@ -23,7 +23,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
-from _helpers import locate_bus, override_component_attrs, prepare_costs
+from _helpers import locate_bus, override_component_attrs, prepare_costs, read_csv_nafix
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def select_ports(n):
     This function selects the buses where ports are located.
     """
 
-    ports = pd.read_csv(
+    ports = read_csv_nafix(
         snakemake.input.export_ports,
         index_col=None,
         keep_default_na=False,
@@ -137,7 +137,7 @@ def add_export(n, hydrogen_buses_ports, export_profile):
             "Generator",
             "H2 export load",
             bus="H2 export bus",
-            carrier="H2",
+            carrier="H2 export",
             sign=-1,
             p_nom_extendable=True,
             marginal_cost=snakemake.params.endogenous_price * (-1),
@@ -149,7 +149,7 @@ def add_export(n, hydrogen_buses_ports, export_profile):
             "Load",
             "H2 export load",
             bus="H2 export bus",
-            carrier="H2",
+            carrier="H2 export",
             p_set=export_profile,
         )
 
@@ -172,7 +172,7 @@ def create_export_profile():
 
     elif snakemake.params.export_profile == "ship":
         # Import hydrogen export ship profile and check if it matches the export demand obtained from the wildcard
-        export_profile = pd.read_csv(snakemake.input.ship_profile, index_col=0)
+        export_profile = read_csv_nafix(snakemake.input.ship_profile, index_col=0)
         export_profile.index = pd.to_datetime(export_profile.index)
         export_profile = pd.Series(
             export_profile["profile"], index=pd.to_datetime(export_profile.index)

@@ -7,6 +7,7 @@
 import glob
 import logging
 import os
+import shutil
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -19,7 +20,8 @@ import numpy as np
 import pandas as pd
 import py7zr
 import requests
-from _helpers import BASE_DIR, aggregate_fuels, get_conv_factors
+from _helpers import BASE_DIR, aggregate_fuels, get_conv_factors, read_csv_nafix
+from googledrivedownloader import download_file_from_google_drive as download_gdrive
 
 _logger = logging.getLogger(__name__)
 
@@ -380,14 +382,33 @@ if __name__ == "__main__":
             os.remove(f)
 
         # Feed the dictionary of links to the for loop, download and unzip all files
-        for key, value in d.items():
-            zipurl = value
+        try:
+            for key, value in d.items():
+                zipurl = value
 
-            with urlopen(zipurl) as zipresp:
-                with ZipFile(BytesIO(zipresp.read())) as zfile:
-                    zfile.extractall(os.path.join(BASE_DIR, "data/demand/unsd/data"))
+                with urlopen(zipurl) as zipresp:
+                    with ZipFile(BytesIO(zipresp.read())) as zfile:
+                        zfile.extractall(
+                            os.path.join(BASE_DIR, "data/demand/unsd/data")
+                        )
 
-                    path = os.path.join(BASE_DIR, "data/demand/unsd/data")
+                path = os.path.join(BASE_DIR, "data/demand/unsd/data")
+        except:
+            _logger.warning(
+                f"Could not open the file from {zipurl}. "
+                "Using the data stored in google drive."
+            )
+            download_gdrive(
+                file_id="1VUV0X-tTQECi2pHdE5EWXjPI2yeCdk6F",
+                dest_path=os.path.join(BASE_DIR, "data/demand/unsd/unsd.zip"),
+                unzip=True,
+                overwrite=True,
+            )
+
+            # clean up __MACOSX folder if it exists
+            macosx_root_path = os.path.join(BASE_DIR, "data/demand/unsd/__MACOSX")
+            if os.path.exists(macosx_root_path):
+                shutil.rmtree(macosx_root_path)
 
     # Get the files from the path provided in the OP
     all_files = list(
@@ -396,7 +417,7 @@ if __name__ == "__main__":
 
     # Create a dataframe from all downloaded files
     df = pd.concat(
-        (pd.read_csv(f, encoding="utf8", sep=";") for f in all_files), ignore_index=True
+        (read_csv_nafix(f, encoding="utf8", sep=";") for f in all_files), ignore_index=True
     )
 
     # Split 'Commodity', 'Transaction' column to two
@@ -435,7 +456,7 @@ if __name__ == "__main__":
     df_yr = df_yr[df_yr.country.isin(countries)]
 
     # Create an empty dataframe for energy_totals_base
-    energy_totals_cols = pd.read_csv(
+    energy_totals_cols = read_csv_nafix(
         os.path.join(BASE_DIR, "data/energy_totals_DF_2030.csv")
     ).columns
     energy_totals_base = pd.DataFrame(columns=energy_totals_cols, index=countries)
