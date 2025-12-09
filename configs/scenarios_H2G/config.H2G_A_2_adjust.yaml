@@ -50,19 +50,22 @@ scenario:
   ll: ["copt"]
   clusters: [10]
   opts: [
-    Co2L0.6, Co2L0.1, # CD
-    Co2L0.74, Co2L0.1, # EG, 2035 GECO
-    Co2L0.6, Co2L0.1, # ET
-    Co2L0.9, Co2L0.1, # GH
-    Co2L0.6, Co2L0.1, # KE
-    Co2L1.0, Co2L0.1, # MA, 2035 GECO oriented
-    Co2L0.9, Co2L0.1, # NA
-    Co2L0.9, Co2L0.1, # NG
-    Co2L1.0, Co2L0.1, # TN = MA
-    Co2L0.9, Co2L0.1, # TZ
-    Co2L0.6, Co2L0.1, # ZA, 2035 climateactiontracker
+    Co2L0.77, Co2L0.1, # CD, average
+    Co2L0.74, Co2L0.1, # EG, 2035 GECO2024_15C
+    Co2L0.60, Co2L0.1, # ET, 2035 CAT_MP based minimum value
+    Co2L0.77, Co2L0.1, # GH, average
+    Co2L0.60, Co2L0.1, # KE, 2035 CAT_MP based minimum value
+    Co2L1.01, Co2L0.1, # MA, 2035 GECO2024_15C for Morocco & Tunesia
+    Co2L0.77, Co2L0.1, # NA, average
+    Co2L0.62, Co2L0.1, # NG, 2035 CAT_MP
+    Co2L1.01, Co2L0.1, # TN 2035 GECO2024_15C for Morocco & Tunesia
+    Co2L0.77, Co2L0.1, # TZ, average
+    Co2L0.62, Co2L0.1, # ZA, 2035 GECO2024_15C
+    Co2L0.70, Co2L0.1, # DZ, 2035 GECO2024_15C for Algeria & Libya
+    Co2L0.77, Co2L0.1, # MR, average
     ] 
-    # CO2 reductions rel. to 2015 are derived from modelled MtCO2eq pathways (fair share) presented by https://climateactiontracker.org/ and GECO Outlook 2024. Co2L for missing countries are average values or own assumptions. Lower limit for 2035 is set to 0.6. Values for 2050 are all set to 0.1.
+    # CO2 reductions rel. to 2015 are derived from modelled MtCO2eq pathways (fair share) presented by https://climateactiontracker.org/ and GECO Outlook 2024. Co2L for missing countries are average values or own assumptions. Lower limit for 2035 is set to 0.6. Values for 2050 are all set to 0.15.
+    # Note: GECO2024_15C would allow significantly higher CO2 emissions for Rest Sub Saharan Africa compared to average.
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2035
   - 2050
@@ -213,7 +216,7 @@ electricity:
     - 30.72e+6 # TZ
     - 460.05e+6 # ZA
     - 2.74e+6 # MR
-    - 329.72e+6 # AR
+    - 329.72e+6 # DZ
   agg_p_nom_limits: # enables to set country-wise maximum and minimum generation capacities for generators (e.g. renewables, nuclear, and geothermal)
     file: data/agg_p_nom_minmax.csv # path to csv file containing country-wise generation capacity limits
     include_existing: false # false: only new built capacities are constrained; true: existing capacities are accounted in the constraints
