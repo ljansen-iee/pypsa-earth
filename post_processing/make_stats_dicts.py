@@ -133,9 +133,10 @@ optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2"], name="bus_c
 
 costs_dict = init_stats_dict(nc_files, keys=["capex", "opex"], name="costs")
 
-mean_marginal_prices = pd.DataFrame(index=nc_files.index, columns=["H2 export bus"])
-mean_marginal_prices.columns.name = "bus" # NB: this is spatially resolved.
-
+time_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus"])
+time_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
+load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export bus"])
+load_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
 
 for nc_files_idx in nc_files.index:
     
@@ -212,25 +213,22 @@ for nc_files_idx in nc_files.index:
         n.loads_t.p_set["H2 export load"].mul(n.buses_t.marginal_price["H2 export bus"]).sum()/1e9
     )
 
-    ##### time averaged marginal prices per bus_carrier in EUR/MWh
-
-    value = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting! 
-    mean_marginal_prices.at[nc_files_idx,"H2 export bus"] = value
-
-
-    # TODO: add volume weighted average of marginal prices 
+    ##### time and load averaged marginal prices per bus_carrier in EUR/MWh
 
     h2_buses = n.buses.loc[n.buses.index.str.contains("H2")]
     for bus in h2_buses.index:
         value = n.buses_t.marginal_price[bus].mean() # NB: hourly pattern is interesting! 
-        mean_marginal_prices.at[nc_files_idx, bus] = value
-    # value = n.buses_t.marginal_price["H2 export bus"].mean() # NB: hourly pattern is interesting! 
-    # mean_marginal_prices.at[nc_files_idx,"H2 export bus"] = value
+        time_avg_marginal_price.at[nc_files_idx, bus] = value
+
+        demand = n.loads_t.p["H2 export load"]
+        value = ((demand*n.buses_t.marginal_price["H2 export bus"]).sum())/(demand.sum())
+        load_avg_marginal_price.at[nc_files_idx, bus] = value 
 
 
 # %%
 save_stats_dict(balance_dict, "balance_dict", sdir)
 save_stats_dict(optimal_capacity_dict, "optimal_capacity_dict", sdir)
 save_stats_dict(costs_dict, "costs_dict", sdir)
-save_stats_dict(mean_marginal_prices, "mean_marginal_prices", sdir)
+save_stats_dict(time_avg_marginal_price, "time_avg_marginal_price", sdir)
+save_stats_dict(load_avg_marginal_price, "load_avg_marginal_price", sdir)
 # %%
