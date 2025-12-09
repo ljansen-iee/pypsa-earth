@@ -62,7 +62,7 @@ scenario:
     Co2L0.9, Co2L0.1, # TZ
     Co2L0.6, Co2L0.1, # ZA, 2035 climateactiontracker
     ] 
-    # CO2 reductions rel. to 2015 are derived from modelled MtCO2eq pathways (fair share) presented by https://climateactiontracker.org/ and GECO Outlook 2024. Co2L for missing countries are average values or own assumptions. Lower limit for 2035 is set to 0.6. Values for 2050 are all set to 0.15.
+    # CO2 reductions rel. to 2015 are derived from modelled MtCO2eq pathways (fair share) presented by https://climateactiontracker.org/ and GECO Outlook 2024. Co2L for missing countries are average values or own assumptions. Lower limit for 2035 is set to 0.6. Values for 2050 are all set to 0.1.
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2035
   - 2050
