@@ -428,7 +428,7 @@ def add_export(n, exp_carrier, volume, price, profile, nodes_with_port, costs, s
             bus1=exp_carrier + " export",
             bus2="co2 atmosphere",
             carrier=exp_carrier + " export",
-            p_nom_extendable=True,
+            # p_nom_extendable=True,
             p_nom=1e7, #volume * 0.01,  # TODO: check if setting p_nom to 1% of annual export volume is interesting
             efficiency=1,
             efficiency2=co2_intensity,
@@ -530,13 +530,13 @@ if __name__ == "__main__":
             "add_export",
             simpl="",
             clusters="10",
-            ll="v1.1",
-            opts="Co2L1.171",
-            planning_horizons="2030",
-            sopts="4H",
-            discountrate=0.078,
+            ll="v1.4",
+            opts="Co2L0.041",
+            planning_horizons="2050",
+            sopts="1H",
+            discountrate=0.090,
             demand="EL",
-            eopts="H2v1.0+HBIv1.0+MEOHv1.0",
+            eopts="NH3v1.0+FTv1.0+MEOHv1.0+HBIv1.0",
             # configfile="test/config.test1.yaml",
         )
 

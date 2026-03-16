@@ -322,10 +322,10 @@ if __name__ == "__main__":
         snakemake = mock_snakemake(
             "prepare_network",
             simpl="",
-            clusters="4",
-            ll="c1",
-            opts="Co2L-4H",
-            configfile="test/config.sector.yaml",
+            clusters="10",
+            ll="v1.2",
+            opts="Co2L0.14",
+            # configfile="test/config.sector.yaml",
         )
 
     configure_logging(snakemake)

@@ -85,21 +85,14 @@ def add_carrier_buses(n, carrier, nodes=None):
 
     n.madd("Bus", nodes, location=location, carrier=carrier, unit=unit)
 
-    # initial restricted fossil reserves
-    e_initial = (snakemake.params.fossil_reserves).get(carrier, 0) * 1e6
-
-    if e_initial >= 0:
-        logger.info(f"Adding fossil reserve of {e_initial*1e-6:.1f} TWh of {carrier} as store capacity.")
-
     n.madd(
         "Store",
         nodes + " Store",
         bus=nodes,
-        e_nom_extendable=True if e_initial == 0 else False,
-        e_cyclic=True if e_initial == 0 else False,
+        e_nom_extendable=True,
+        e_cyclic=True,
         carrier=carrier,
-        e_initial=e_initial,
-        capital_cost=capital_cost if e_initial == 0 else 0,
+        capital_cost=capital_cost,
     )
     
     fossils = ["coal", "gas", "oil", "lignite"] # important to exclude methanol with marginal costs of 0
@@ -112,6 +105,19 @@ def add_carrier_buses(n, carrier, nodes=None):
             carrier=carrier,
             marginal_cost=costs.at[carrier, "fuel"],
         )
+
+        # if fossil reserves for a primary fossil carrier are set, set a global constraint based on the value
+        fossil_limit = (snakemake.params.fossil_reserves).get(carrier, 0) * 1e6
+
+        if fossil_limit > 0:
+            logger.info(f"Adding limited fossil reserve of {fossil_limit*1e-6:.1f} TWh of {carrier} as a GlobalConstraint.")
+
+            n.add("GlobalConstraint",
+                f"{carrier}_max_generation_limit",
+                type="operational_limit",
+                carrier_attribute=carrier,
+                sense="<=",
+                constant=fossil_limit)
 
 
 def add_generation(
@@ -1409,7 +1415,7 @@ def add_aviation(n, cost):
         "Load",
         "aviation oil emissions",
         bus="co2 atmosphere",
-        carrier="oil emissions",
+        carrier="aviation oil emissions",
         p_set=-co2,
     )
 
@@ -1622,6 +1628,7 @@ def add_methanol(n, costs):
     # methanol production (methanolisation)
     logger.info("Adding methanolisation process.")
 
+    eff = 1/costs.at["methanolisation", "hydrogen-input"]
     n.madd(
         "Link",
         spatial.nodes,
@@ -1629,75 +1636,75 @@ def add_methanol(n, costs):
         bus0=spatial.nodes + " H2",
         bus1=spatial.methanol.nodes,
         bus2=spatial.co2.nodes,
+        # bus3=spatial.nodes,
         p_nom_extendable=True,
         carrier="methanolisation",
-        efficiency=costs.at["methanolisation", "efficiency"],
-        efficiency2=-costs.at["methanolisation", "efficiency"]
-        * costs.at["methanol", "CO2 intensity"],
-        capital_cost=costs.at["methanolisation", "fixed"]
-        * costs.at["methanolisation", "efficiency"],
+        efficiency=eff,
+        efficiency2=-eff * costs.at["methanol", "CO2 intensity"],
+        # efficiency3=-eff * costs.at["methanol", "electricity-input"],
+        capital_cost=costs.at["methanolisation", "fixed"] * eff,
         lifetime=costs.at["methanolisation", "lifetime"],
     )
-
+    "carbondioxide-input", "efficiency", "electricity-input", "heat-output","thermal-output"
     # methanol reforming
 
-    logger.info("Adding methanol steam reforming.")
+    # logger.info("Adding methanol steam reforming.")
 
-    tech = "Methanol steam reforming"
+    # tech = "Methanol steam reforming"
 
-    capital_cost = costs.at[tech, "fixed"] / costs.at[tech, "methanol-input"]
+    # capital_cost = costs.at[tech, "fixed"] / costs.at[tech, "methanol-input"]
 
-    n.madd(
-        "Link",
-        spatial.nodes,
-        suffix=f" {tech}",
-        bus0=spatial.methanol.nodes,
-        bus1=spatial.h2.nodes,
-        bus2="co2 atmosphere",
-        p_nom_extendable=True,
-        capital_cost=capital_cost,
-        efficiency=1 / costs.at[tech, "methanol-input"],
-        efficiency2=costs.at["methanol", "CO2 intensity"],
-        carrier=tech,
-        lifetime=costs.at[tech, "lifetime"],
-    )
+    # n.madd(
+    #     "Link",
+    #     spatial.nodes,
+    #     suffix=f" {tech}",
+    #     bus0=spatial.methanol.nodes,
+    #     bus1=spatial.h2.nodes,
+    #     bus2="co2 atmosphere",
+    #     p_nom_extendable=True,
+    #     capital_cost=capital_cost,
+    #     efficiency=1 / costs.at[tech, "methanol-input"],
+    #     efficiency2=costs.at["methanol", "CO2 intensity"],
+    #     carrier=tech,
+    #     lifetime=costs.at[tech, "lifetime"],
+    # )
 
 
-    # methanol reforming with cc
-    logger.info("Adding methanol steam reforming with carbon capture.")
+    # # methanol reforming with cc
+    # logger.info("Adding methanol steam reforming with carbon capture.")
 
-    tech = "Methanol steam reforming"
+    # tech = "Methanol steam reforming"
 
-    # TODO: heat release and electricity demand for process and carbon capture
-    # but the energy demands for carbon capture have not yet been added for other CC processes
-    # 10.1016/j.rser.2020.110171: 0.129 kWh_e/kWh_H2, -0.09 kWh_heat/kWh_H2
+    # # TODO: heat release and electricity demand for process and carbon capture
+    # # but the energy demands for carbon capture have not yet been added for other CC processes
+    # # 10.1016/j.rser.2020.110171: 0.129 kWh_e/kWh_H2, -0.09 kWh_heat/kWh_H2
 
-    capital_cost = costs.at[tech, "fixed"] / costs.at[tech, "methanol-input"]
+    # capital_cost = costs.at[tech, "fixed"] / costs.at[tech, "methanol-input"]
 
-    capital_cost_cc = (
-        capital_cost
-        + costs.at["cement capture", "fixed"]
-        * costs.at["methanol", "CO2 intensity"]
-    )
+    # capital_cost_cc = (
+    #     capital_cost
+    #     + costs.at["cement capture", "fixed"]
+    #     * costs.at["methanol", "CO2 intensity"]
+    # )
 
-    n.madd(
-        "Link",
-        spatial.nodes,
-        suffix=f" {tech} CC",
-        bus0=spatial.methanol.nodes,
-        bus1=spatial.h2.nodes,
-        bus2="co2 atmosphere",
-        bus3=spatial.co2.nodes,
-        p_nom_extendable=True,
-        capital_cost=capital_cost_cc,
-        efficiency=1 / costs.at[tech, "methanol-input"],
-        efficiency2=(1 - costs.at["cement capture", "capture_rate"])
-        * costs.at["methanol", "CO2 intensity"],
-        efficiency3=costs.at["cement capture", "capture_rate"]
-        * costs.at["methanol", "CO2 intensity"],
-        carrier=f"{tech} CC",
-        lifetime=costs.at[tech, "lifetime"],
-    )
+    # n.madd(
+    #     "Link",
+    #     spatial.nodes,
+    #     suffix=f" {tech} CC",
+    #     bus0=spatial.methanol.nodes,
+    #     bus1=spatial.h2.nodes,
+    #     bus2="co2 atmosphere",
+    #     bus3=spatial.co2.nodes,
+    #     p_nom_extendable=True,
+    #     capital_cost=capital_cost_cc,
+    #     efficiency=1 / costs.at[tech, "methanol-input"],
+    #     efficiency2=(1 - costs.at["cement capture", "capture_rate"])
+    #     * costs.at["methanol", "CO2 intensity"],
+    #     efficiency3=costs.at["cement capture", "capture_rate"]
+    #     * costs.at["methanol", "CO2 intensity"],
+    #     carrier=f"{tech} CC",
+    #     lifetime=costs.at[tech, "lifetime"],
+    # )
 
 
     # def add_biomass_to_methanol(n, costs):
@@ -2314,7 +2321,7 @@ def add_industry(n, costs):
             bus2="co2 atmosphere",
             carrier="industry methanol",
             p_nom_extendable=True,
-            efficiency2=1 / costs.at["methanol", "CO2 intensity"],
+            efficiency2=costs.at["methanol", "CO2 intensity"],
         )
 
     ########################################################### CARRIER = HEAT
@@ -2491,7 +2498,7 @@ def add_industry(n, costs):
             industrial_demand[sector] 
             * costs.at["electric arc furnace", "hbi-input"] 
             * electricity_input / nhours
-        ) * 1.01 # Slightly oversize to avoid numerical issues
+        ) * 2.0 # Slightly oversize to avoid numerical issues and allow some flexibility
         
         marginal_cost = (
             costs.at["iron ore DRI-ready", "commodity"]
@@ -2523,7 +2530,7 @@ def add_industry(n, costs):
 
         p_nom = (
             industrial_demand[sector] * electricity_input / nhours
-        ) * 1.01 # Slightly oversize to avoid numerical issues
+        ) * 2.0 # Slightly oversize to avoid numerical issues and allow some flexibility
 
         n.madd(
             "Link", 
@@ -3447,15 +3454,29 @@ def add_residential(n, costs):
             n.loads_t.p_set.filter(like=country)[heat_buses],
             n.loads_t.p_set.filter(like=country)[heat_buses].sum().sum(),
         )
-        n.loads_t.p_set.loc[:, heat_buses] = np.where(
-            safe_division.notna(),
-            (safe_division * rem_heat_demand * 1e6).div(temporal_resolution, axis=0),
-            0.0,
-        )
+
+
+        if snakemake.config["sector"]["heat_exogenous"]:
+            logger.warning(
+                "Assuming all residential heat demand is met "
+                "by exogenously defined energy carriers (biomass, oil, gas, electricity). " \
+                "'electricity residential space' and 'electricity residential water' will be " \
+                "added to 'electricity residential'. " \
+                "No additional heat supply options (e.g. heat pumps, resistive heaters) will be built.")
+            rem_heat_demand = 0
+            n.loads_t.p_set.loc[:, heat_buses] = 0.
+        else:
+            n.loads_t.p_set.loc[:, heat_buses] = np.where(
+                safe_division.notna(),
+                (safe_division * rem_heat_demand * 1e6).div(temporal_resolution, axis=0),
+                0.0,
+            )
+
 
     # Revise residential electricity demand
     buses = n.buses[n.buses.carrier == "AC"].index.intersection(n.loads_t.p_set.columns)
 
+    # TODO if not snakemake.config["sector"]["heat_exogenous"]:
     profile_pu = normalize_by_country(n.loads_t.p_set[buses]).fillna(0)
     n.loads_t.p_set.loc[:, buses] = p_set_from_scaling(
         "electricity residential", profile_pu, energy_totals, temporal_resolution
@@ -3751,13 +3772,13 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="",
+            opts="Co2L1.09",
             planning_horizons="2035",
             sopts="1H",
             discountrate=0.078,
             demand="IR",
         )
-    
+
     # Load population layout
     pop_layout = pd.read_csv(snakemake.input.clustered_pop_layout, index_col=0)
 
@@ -3929,6 +3950,26 @@ if __name__ == "__main__":
     add_residential(n, costs)
     add_services(n, costs)
 
+    def add_oil_transport(n, costs):
+        logger.info("Adding oil transport network.")
+        
+        oil_links = create_network_topology(n, "oil transport ")
+        
+        n.madd(
+            "Link",
+            oil_links.index,
+            bus0=oil_links.bus0.values + " oil",
+            bus1=oil_links.bus1.values + " oil", 
+            p_nom_extendable=True,
+            p_min_pu=-1,  # Allow bidirectional flow
+            length=oil_links.length.values,
+            capital_cost=100,
+            carrier="oil transport",
+        )
+
+    if options["oil"]["spatial_oil"]:
+        add_oil_transport(n, costs)
+
     if options.get("electricity_distribution_grid", False):
         add_electricity_distribution_grid(n, costs)
 
@@ -3964,3 +4005,104 @@ if __name__ == "__main__":
     n.export_to_netcdf(snakemake.output[0])
 
     # TODO changes in case of myopic oversight
+
+    techs_used = [
+        "gas storage",
+        "General liquid hydrocarbon storage (product)",
+        "Fischer-Tropsch",
+        "oil",
+        "electrolysis",
+        "fuel cell",
+        "OCGT",
+        "hydrogen storage underground",
+        "battery inverter",
+        "H2 (g) pipeline repurposed",
+        "H2 (g) pipeline",
+        "seawater desalination",
+        "air separation unit",
+        "Haber-Bosch",
+        "NH3 (l) storage tank incl. liquefaction",
+        "biogas",
+        "solid biomass",
+        "gas",
+        "biomass CHP capture",
+        "BtL",
+        "CO2 pipeline",
+        "CO2 submarine pipeline",
+        "battery storage",
+        "methanation",
+        "helmeth",
+        "SMR CC",
+        "SMR",
+        "methanolisation",
+        "methanol",
+        "cement capture",
+        "biomass-to-methanol",
+        "iron ore DRI-ready",
+        "direct iron reduction furnace",
+        "electric arc furnace",
+        "coal",
+        "decentral air-sourced heat pump",
+        "central air-sourced heat pump",
+        "decentral ground-sourced heat pump",
+        "central ground-sourced heat pump",
+        "water tank charger",
+        "water tank discharger",
+        "decentral water tank storage",
+        "central water tank storage",
+        "decentral resistive heater",
+        "central resistive heater",
+        "decentral gas boiler",
+        "central gas boiler",
+        "decentral solar thermal",
+        "central solar thermal",
+        "central gas CHP",
+        "micro CHP",
+        "direct air capture",
+        "solar-utility",
+        "solar-rooftop",
+        "solar",
+        "onwind",
+        "home battery storage",
+        "home battery inverter",
+        "electricity distribution grid",
+    ]
+    costs_details = pd.read_csv(snakemake.input.costs,
+                                index_col=[0, 1],
+                                header=[0],)
+    costs_details = costs_details.loc[techs_used, :]
+
+    costs_details = costs_details.drop([
+        ("Fischer-Tropsch","carbondioxide-input"),
+        ("Fischer-Tropsch","capture rate"),
+        ("Fischer-Tropsch","hydrogen-input"),
+        ("Fischer-Tropsch","thermal-output"),
+        ])
+
+    costs_details = costs_details.drop([
+        ("electrolysis","efficiency-heat"),
+        ])
+
+    costs_details = costs_details.drop([
+        ("Haber-Bosch","thermal-output"),
+        ("Haber-Bosch","efficiency"),
+        ])
+    
+    costs_details = costs_details.drop([
+        ("methanolisation","carbondioxide-input"),
+        ("methanolisation","efficiency"),
+        ("methanolisation","electricity-input"),
+        ("methanolisation","heat-output"),
+        ("methanolisation","thermal-output"),
+        ])
+    
+    costs_details = costs_details.drop([
+        ("direct air capture","heat-output"),
+        ("direct air capture","thermal-input"),
+        ])
+    
+    costs_details = costs_details.drop([
+        ("solar"),
+        ])
+
+    costs_details.to_csv(f"costs_used_{investment_year}.csv")

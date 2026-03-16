@@ -70,11 +70,13 @@ def validate_custom_demands(industry_totals, countries, industry_sector="iron an
         "chemical and petrochemical": ["ammonia", "methanol"],
     }
 
+    totals = industry_totals.drop(index=["process emissions"], level=1, errors='ignore')
+
     demand_b = (
-        industry_totals.index.get_level_values(1).isin(to_product[industry_sector]) 
-        & industry_totals.index.get_level_values(0).isin(countries))
-    demand_in_final_product = industry_totals.loc[demand_b, industry_sector].sum()
-    demand_in_energy = industry_totals.loc[~demand_b, industry_sector].sum()
+        totals.index.get_level_values(1).isin(to_product[industry_sector]) 
+        & totals.index.get_level_values(0).isin(countries))
+    demand_in_final_product = totals.loc[demand_b, industry_sector].sum()
+    demand_in_energy = totals.loc[~demand_b, industry_sector].sum()
 
     if demand_in_final_product > 0 and demand_in_energy > 0:
         _logger.warning(
@@ -90,9 +92,13 @@ if __name__ == "__main__":
             "build_industry_demand",
             simpl="",
             clusters="10",
-            planning_horizons=2030,
-            demand="EL",
+            planning_horizons=2050,
+            demand="RF",
         )
+
+    # countries = ["MA", "CL", "EG", "ZA"]
+    # print(industry_base_totals.xs("process emissions", level=1, axis=0).mul(0.8).sum(1).div(1e6))
+    # industry_base_totals.xs("process emissions", level=1, axis=0).mul(0.8).to_csv("process_emissions_2050.csv")
 
     countries = snakemake.params.countries
 
@@ -166,6 +172,8 @@ if __name__ == "__main__":
         )
 
         industry_totals = fill_and_merge_other_industries(industry_totals)
+
+        industry_totals = industry_totals.fillna(0)
 
         validate_custom_demands(industry_totals, countries, "iron and steel")
         validate_custom_demands(industry_totals, countries, "chemical and petrochemical")

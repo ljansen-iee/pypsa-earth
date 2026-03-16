@@ -14,7 +14,7 @@ from itertools import product
 
 import geopandas as gpd
 import pandas as pd
-from _helpers import locate_bus, three_2_two_digits_country
+from _helpers import locate_bus, three_2_two_digits_country, BASE_DIR
 from shapely.geometry import Point
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ def build_nodal_distribution_key(
     return keys
 
 
-def match_technology(df):
+def map_technology_to_industry(df):
     industry_mapping = {
         "Integrated steelworks": "iron and steel",
         "DRI + Electric arc": "iron and steel",
@@ -88,8 +88,7 @@ def match_technology(df):
         "Aluminium": "non-ferrous metals",
     }
 
-    df["industry"] = df["technology"].map(industry_mapping)
-    return df
+    return df["technology"].map(industry_mapping)
 
 
 if __name__ == "__main__":
@@ -98,9 +97,10 @@ if __name__ == "__main__":
 
         snakemake = mock_snakemake(
             "build_industrial_distribution_key",
-            clusters="4",
+            simpl="",
+            clusters="10",
             planning_horizons=2050,
-            demand="RF",
+            demand="EL",
         )
 
     regions = gpd.read_file(snakemake.input.regions_onshore)
@@ -124,12 +124,12 @@ if __name__ == "__main__":
             "Using custom industry database from 'data/custom/industrial_database.csv' instead of default"
         )
         geo_locs = pd.read_csv(
-            "data/custom/industrial_database.csv",
+            os.path.join(BASE_DIR,"data/custom/industrial_database.csv"),
             sep=",",
             header=0,
             keep_default_na=False,  # , index_col=0
         )
-        geo_locs["industry"] = geo_locs["technology"]
+        geo_locs["industry"] = map_technology_to_industry(geo_locs)
     else:
         logger.info("Using default industry database")
         geo_locs = pd.read_csv(
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         geo_locs["capacity"] = pd.to_numeric(geo_locs.capacity)
 
         # Call the function to add the "industry" column
-        df_with_industry = match_technology(geo_locs)
+        geo_locs["industry"] = map_technology_to_industry(geo_locs)
 
     geo_locs.capacity = pd.to_numeric(geo_locs.capacity)
 

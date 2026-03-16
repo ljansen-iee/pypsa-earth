@@ -22,7 +22,20 @@ import pandas as pd
 import requests
 import yaml
 from fake_useragent import UserAgent
-from pypsa.components import component_attrs, components
+
+import pypsa
+
+if pypsa.__version__ < "0.33.0":
+
+    from pypsa.components import (
+        component_attrs, 
+        components
+    )
+else:
+    from pypsa.components import ( 
+        components
+    )
+    
 from shapely.geometry import Point
 
 logger = logging.getLogger(__name__)

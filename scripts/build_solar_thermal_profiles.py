@@ -7,6 +7,7 @@ Build solar thermal collector time series.
 """
 
 import os
+import gc
 
 import atlite
 import geopandas as gpd
@@ -25,6 +26,11 @@ if __name__ == "__main__":
             planning_horizons=2030,
         )
 
+    # # Configure dask for better memory handling
+    # import dask
+    # dask.config.set(scheduler='synchronous')  # Use synchronous scheduler to avoid memory issues
+    # dask.config.set({'array.chunk-size': '64MiB'})  # Smaller chunk size
+    
     config = snakemake.params.solar_thermal_config
 
     time = pd.date_range(freq="h", **snakemake.params.snapshots)
@@ -41,6 +47,9 @@ if __name__ == "__main__":
     I = cutout.indicatormatrix(clustered_regions)
 
     for area in ["total", "rural", "urban"]:
+        # Force garbage collection before each area calculation
+        gc.collect()
+        
         pop_layout = xr.open_dataarray(snakemake.input[f"pop_layout_{area}"])
 
         stacked_pop = pop_layout.stack(spatial=("y", "x"))
@@ -55,3 +64,7 @@ if __name__ == "__main__":
         )
 
         solar_thermal.to_netcdf(snakemake.output[f"solar_thermal_{area}"])
+        
+        # Clean up intermediate variables
+        del pop_layout, stacked_pop, M, nonzero_sum, M_tilde, solar_thermal
+        gc.collect()

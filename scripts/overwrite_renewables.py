@@ -41,7 +41,7 @@ if __name__ == "__main__":
             opts="Co2L0.24",
             planning_horizons=2050,
             sopts="1h",
-            discountrate=0.082,
+            discountrate=0.090,
             demand="NZ",
             # configfile="config.RE_classes_EG_2050.yaml"
         )
