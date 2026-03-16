@@ -7,12 +7,7 @@ import pandas as pd
 idx_slice = pd.IndexSlice
 from energyants.core.db import db_connector, run_sql, write_to_db
 from plot_helpers import (
-    chdir_to_parent_dir,
-    convert_country_to_iso3,
-    consistency_check,
     read_stats_dict,
-    drop_index_levels, 
-    update_layout, 
     prepare_dataframe,
     get_supply_demand_from_balance,
     rename_electricity, 
@@ -21,14 +16,39 @@ from plot_helpers import (
     rename_oil,
     rename_co2,
     rename_costs,
-    rename_to_upper_case,
     colors,
-    get_missing_colors,
-    nice_title,
-    save_plotly_fig)
+    save_plotly_fig
+)
 
 
 import country_converter as coco
+
+def drop_index_levels(df, to_drop=[]):
+    """
+    Drop index levels from the dataframe.
+    """
+    df = df.copy()
+
+    for level in to_drop:
+        df = df.droplevel(level)
+        if level in df.index.names and df.index.get_level_values(level).nunique() > 1:
+            print(f"Index level {level} has multiple unique values and should maybe be maintained: ",
+                  f"{df.index.get_level_values(level).unique()}")
+
+    return df
+
+def nice_title(title, subtitle):
+    return f'{title}' + '<br>' +  f'<span style="font-size: 12px;">{subtitle}</span>'
+
+def chdir_to_parent_dir():
+    """Change directory to parent (project root)."""
+    from pathlib import Path
+    import os, sys
+    file_dir = Path(__file__).parent.resolve()
+    if file_dir.parts:
+        root_dir = file_dir.parent
+        os.chdir(root_dir)
+        sys.path.append(str(root_dir))
 
 def convert_country_to_iso3(df):
     """
@@ -54,6 +74,28 @@ def convert_country_to_iso3(df):
 
 def rename_to_pg_format(variable):
     return variable.replace(" ", "_").lower()
+
+
+def consistency_check(df):
+
+    df = df.copy()
+    # Check if variable values are unique for each run_name_prefix, scen, and year
+    duplicates = df.duplicated(subset=["run_name_prefix", "run_name", "scen", "year", "country", "variable"], keep=False)
+
+    if duplicates.any():
+        raise ValueError("Duplicate variable values found for the same run_name_prefix, run_name, scen, year, country, variable.")
+    df = df[~duplicates]
+
+def get_missing_colors(df, colors_dict):
+    """
+    Find missing color specifications for variables
+    """
+    missing_colors = set(df["variable"]) - set(colors_dict.keys())
+    if missing_colors:
+        print(f"Missing color specifications for variables: {missing_colors}")
+    else:
+        print("All variables have color specifications.")
+    return missing_colors
 
 db_connection = db_connector(name="work_db_82")
 
@@ -93,7 +135,7 @@ for key in costs_dict.keys():
 
 df = prepare_dataframe(balance_dict["AC"], idx_group)
 df = convert_country_to_iso3(df)
-df["variable"] = df.variable.map(rename_electricity).map(rename_to_upper_case)
+df["variable"] = df.variable.map(rename_electricity)
 df["variable_lower"] = df.variable.map(rename_to_pg_format)
 (supply_df, supply_sum_df, 
  demand_df, demand_sum_df) = get_supply_demand_from_balance(df)
@@ -239,7 +281,7 @@ write_to_db(
 df = prepare_dataframe(optimal_capacity_dict["AC"], idx_group)
 df = convert_country_to_iso3(df)
 df = df[df["value"]<1e6] #drop loadshedding capacity
-df["variable"] = df.variable.map(rename_electricity).map(rename_to_upper_case)
+df["variable"] = df.variable.map(rename_electricity)
 df["variable_lower"] = df.variable.map(rename_to_pg_format)
 
 df = df.groupby(

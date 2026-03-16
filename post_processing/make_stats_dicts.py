@@ -2,33 +2,32 @@
 import logging
 logger = logging.getLogger(__name__)
 from pathlib import Path
+import re
 import yaml
 import pandas as pd
 idx_slice = pd.IndexSlice
 from itertools import product
 import pypsa
+import matplotlib.pyplot as plt
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning) # Comment out for debugging and development
 warnings.simplefilter(action='ignore', category=DeprecationWarning) # Comment out for debugging and development
 
 from plot_helpers import (
-    chdir_to_parent_dir,
-    collect_files_from_directories,
-    init_stats_dict, 
-    save_stats_dict,
-    to_csv_nafix
+    chdir_to_root_dir,
+    to_csv_nafix,
 )
 
-chdir_to_parent_dir()
+chdir_to_root_dir()
 
 #%%
 
-run_name_prefix = "MAPaper" # Experiment name. It can be freely chosen.
+run_name_prefix = "MAPaper"  # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results"/ f"{run_name_prefix}_summary_v1"
+sdir = Path.cwd() / "results" / f"{run_name_prefix}_summary_v6"
 sdir.mkdir(exist_ok=True, parents=True)
 
-all_run_names = [
+run_names = [
     # "DKS_CL_2030",
     # "DKS_CL_2050",
     # "DKS_EG_2030",
@@ -45,79 +44,112 @@ all_run_names = [
     # "DKS_MA_2050_AB",
     # "DKS_ZA_2030_AB",
     # "DKS_ZA_2050_AB",
-    # "MAPaper_2030",
+    # # "MAPaper_2030",
     "MAPaper_2035",
-]   
+    # "MAPaper_2035_best",
+    # "MAPaper_2035_worst",
+]
 
 #%%
 
-# NB: the following code probably only works if only one country is selected per run.
-all_wildcards = {
-    run_name: 
-    {
-        "run_name_prefix": [], 
-        "run_name": [],
-        "countries": [], # ["EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"]
-        "year": [], #2035, 2050
-        "simpl": [],
-        "clusters": [], # 10
-        "ll": [], # copt
-        "opts": [], # Co2L0.63
-        "sopts": [], # 3H
-        "discountrate": [], # 0.082
-        "demand": [], # AB
-        "eopts": [] # 3.33
-    }
-    for run_name in all_run_names
+def extract_wildcards_from_filename(filename):
+    """Extract scenario parameters from network filename using regex.
+    
+    Expected format: elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{year}_{discountrate}_{demand}_exp{eopts}.nc
+    Example: elec_s_10_ec_lv1.1_Co2L1.09_1H_2035_0.078_Exp_expH2v1.0.nc
+    
+    Using the Snakemake wildcard constraints of PyPSA-Earth for the pattern matching.
+    """
+    pattern = r"elec_s([a-zA-Z0-9]*)_([0-9]+(?:m|flex)?)_ec_l([vc](?:[0-9.]+|opt|all)|all)_([^_]*)_([a-zA-Z0-9+\-.]+)_([0-9]+)_([0-9.]+)_([a-zA-Z0-9+\-.]+)_exp(.+?)\.nc"
+    match = re.search(pattern, filename)
+    if match:
+        simpl, clusters, ll, opts, sopts, year, discountrate, demand, eopts = match.groups()
+        return {
+            "simpl": simpl if simpl else "",
+            "clusters": clusters,
+            "ll": ll,
+            "opts": opts if opts else "",
+            "sopts": sopts,
+            "year": int(year),
+            "discountrate": float(discountrate),
+            "demand": demand,
+            "eopts": eopts,
+        }
+    return None
+
+def collect_files_from_directories(all_postnetworks_dir):
+    """
+    Collects all existing files from the directories specified in all_postnetworks_dir.
+    """
+    files_in_folder = {}
+    for run_name, path in all_postnetworks_dir.items():
+        if path.exists() and path.is_dir():
+            files_in_folder[f"{run_name}"] = list(path.glob('*'))
+        else:
+            files_in_folder[f"{run_name}"] = []
+
+    # Print the collected files for each country
+    for key, files in files_in_folder.items():
+        print(f"Files in {key}:")
+        for file in files:
+            print(f"  {file}")
+
+    return files_in_folder
+
+def init_stats_dict(network_files, keys, name):
+    
+    stats_dict = {
+        key: pd.concat([pd.DataFrame(index=network_files.index)]) #, keys=[key], names=[name]
+        for key in keys}
+
+    return stats_dict
+
+def save_stats_dict(stats_dict, stats_name, path_dir):
+    for key, df in stats_dict.items():
+        to_csv_nafix(df, path_dir / f"{stats_name}_{key}.csv")
+        print(f"Saved {key} to {path_dir / f'{stats_name}_{key}.csv'}")
+
+# NOTE: Config file names must be based on the run name in a folder with run_name_prefix
+configs_dict = {
+    run_name: yaml.safe_load(
+        Path(f"configs/{run_name_prefix}/config.{run_name}.yaml").read_text()
+    )
+    for run_name in run_names
 }
 
-all_configs = {
-    run_name:
-        yaml.safe_load(
-            Path(f"configs/{run_name_prefix}/config.{run_name}.yaml").read_text()) # TODO: config file names should be equal to the run name
-        for run_name in all_run_names
+postnetworks_dict = {
+    run_name: Path.cwd() / configs_dict[run_name]["results_dir"] / f"{run_name}" / "postnetworks"
+    for run_name in run_names
 }
 
-all_postnetworks_dir = {
-    run_name:
-        Path.cwd() / all_configs[run_name]["results_dir"] / f"{run_name}" / "postnetworks"
-        for run_name in all_run_names
-}
+files_in_folder_dict = collect_files_from_directories(postnetworks_dict)
 
-for run_name, config in all_configs.items():
-    all_wildcards[run_name]["run_name_prefix"].append(run_name_prefix)
-    all_wildcards[run_name]["run_name"].append(run_name)
-    all_wildcards[run_name]["countries"].extend(config["countries"])
-    all_wildcards[run_name]["year"].extend(config["scenario"]["planning_horizons"])
-    all_wildcards[run_name]["simpl"].extend(config["scenario"]["simpl"])
-    all_wildcards[run_name]["clusters"].extend(config["scenario"]["clusters"])
-    all_wildcards[run_name]["ll"].extend(config["scenario"]["ll"])
-    all_wildcards[run_name]["opts"].extend(config["scenario"]["opts"])
-    all_wildcards[run_name]["sopts"].extend(config["scenario"]["sopts"])
-    all_wildcards[run_name]["discountrate"].extend(config["costs"]["discountrate"])
-    all_wildcards[run_name]["demand"].extend(config["scenario"]["demand"])
-    all_wildcards[run_name]["eopts"].extend(config["scenario"]["eopts"])
-
-
-files_in_folder = collect_files_from_directories(all_postnetworks_dir)
-
+# Build nc_files DataFrame by parsing filenames directly
 cols = ["run_name_prefix", "run_name", "country", "year", "simpl", "clusters", "ll", "opts", "sopts", "discountrate", "demand", "eopts"]
+nc_files_data = []
 
-nc_files = pd.DataFrame(columns=cols + ["file"]).set_index(cols)
+for run_name in run_names:
+    config = configs_dict[run_name]
+    countries = config["countries"]
+    
+    # NOTE: The following code assumes only one country is selected per run
+    if len(countries) > 1:
+        raise ValueError(f"Run {run_name} has multiple countries: {countries}.")
+    country = countries[0] if countries else "unknown"
+    
+    for file in files_in_folder_dict.get(run_name, []):
+        wcs = extract_wildcards_from_filename(file.name)
+        if wcs:
+            nc_files_data.append({
+                "run_name_prefix": run_name_prefix,
+                "run_name": run_name,
+                "country": country,
+                "file": file,
+                **wcs,
+            })
+            print(f"Adding nc file for {run_name}: {file.name}")
 
-for run_name in all_run_names:
-    wc_keys = all_wildcards[run_name].keys()
-    wc_values_combinations = list(product(*all_wildcards[run_name].values()))
-
-    for combination in wc_values_combinations:
-        wc = dict(zip(wc_keys, combination))
-        for file in files_in_folder[f"{run_name}"]:
-            if f"elec_s{wc['simpl']}_{wc['clusters']}_ec_l{wc['ll']}_{wc['opts']}_{wc['sopts']}_{wc['year']}_{wc['discountrate']}_{wc['demand']}_exp{wc['eopts']}.nc" in file.name:
-                nc_files.at[combination, "file"] = file
-                print("Adding nc file for", wc)
-            else:
-                #print("File not found:", file.name, "for:", f"{run_name_prefix}_{wc["countries"]}")
-                continue
+nc_files = pd.DataFrame(nc_files_data).set_index(cols) if nc_files_data else pd.DataFrame(columns=cols + ["file"]).set_index(cols)
 
 if nc_files.empty:
     raise ValueError("No files found for the given run names and wildcards. Please check the configurations and file names.")
@@ -127,32 +159,34 @@ if nc_files.empty:
 # initialise dicts per metric (market balance, optimal capacities, costs, marginal prices) with dataframes per bus_carrier or other groups
 
 balance_dict = init_stats_dict(nc_files, keys=[
-    "AC", "H2", "oil", "gas", "co2 stored", "co2", "methanol", "NH3"
-    #"freshwater"
+    "AC", "H2", "oil", "gas", "co2 stored", "co2", "methanol", "NH3", "steel", "HBI", "solid biomass", "biogas",
+    # "freshwater"
     ], name="bus_carrier")
 
-optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2"], name="bus_carrier")
+optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2", "methanol", "NH3", "steel", "HBI"], name="bus_carrier")
 
 costs_dict = init_stats_dict(nc_files, keys=["capex", "opex"], name="costs")
 
-time_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export", "FT export", "NH3 export"])
-time_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
 load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export", "FT export", "NH3 export"])
 load_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
+
+pypsa.options.params.statistics.nice_names = False
+pypsa.options.params.statistics.drop_zero = False
+pypsa.options.params.statistics.round = 6
 
 for nc_files_idx in nc_files.index:
     
     n = pypsa.Network(nc_files.at[nc_files_idx,"file"])
-    n.statistics.set_parameters(nice_names=False, drop_zero=False, round=6)
 
-    ##### energy and mass market balance_dict per bus_carrier in TWh
-
+    # energy balance per bus_carrier in TWh
     for bus_carrier in balance_dict.keys():
 
         ds = (
-            n.statistics.energy_balance(bus_carrier=bus_carrier, drop_zero=True)
-            .dropna()
-            .groupby("carrier").sum()
+            n.stats.energy_balance(
+                bus_carrier=bus_carrier, 
+                groupby="carrier",
+                aggregate_across_components=True
+            )
             .div(1e6)
             .round(1)
         )
@@ -162,38 +196,33 @@ for nc_files_idx in nc_files.index:
         if bus_carrier == "AC" and "low voltage" in n.buses.carrier.unique():
 
             ds = (
-                n.statistics.energy_balance(bus_carrier="low voltage", drop_zero=True)
-                .dropna()
-                .groupby("carrier").sum()
+                n.stats.energy_balance(
+                    bus_carrier="low voltage", 
+                    groupby="carrier",                     
+                    aggregate_across_components=True
+                )
                 .div(1e6)
                 .round(1)
             )
 
             balance_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
-                
-            balance_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
 
-            # drop energy between AC and distribution grid 
             balance_dict[bus_carrier] = balance_dict[bus_carrier].drop("electricity distribution grid", axis=1)  
 
-        # if bus_carrier == "H2" and ("H2 export" in n.loads.carrier.unique() or "H2 export load" in n.loads.carrier.unique()):
-
-        #     ds = (
-        #         n.statistics.energy_balance(bus_carrier="H2 export", drop_zero=True)
-        #         .dropna()
-        #         .groupby("carrier").sum()
-        #         .div(1e6)
-        #         .round(1)
-        #     )
-
-        #     balance_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
-
-    ##### optimal production capacity per bus_carrier in GW
-
+    # optimal capacities (installed + expanded) per bus_carrier in GW_output_unit
     for bus_carrier in optimal_capacity_dict.keys():
 
-        ds = n.statistics.optimal_capacity(comps=["Generator", "Link", "StorageUnit"], bus_carrier=bus_carrier).dropna().groupby("carrier").sum().div(1e3).round(1)
-        ds = ds[ds > 0]
+        ds = (
+            n.stats.optimal_capacity(
+                components=["Generator", "Link", "StorageUnit"], 
+                bus_carrier=bus_carrier, 
+                groupby="carrier",
+                aggregate_across_components=True
+            )
+            .loc[lambda x: x > 0]
+            .div(1e3)
+            .round(1)
+        )
 
         # if bus_carrier == "H2":
         #     ds = ds/n.links.groupby("carrier").mean(numeric_only=True).efficiency
@@ -202,18 +231,28 @@ for nc_files_idx in nc_files.index:
 
         if bus_carrier == "AC" and "low voltage" in n.buses.carrier.unique():
 
-            ds = n.statistics.optimal_capacity(comps=["Generator", "Link", "StorageUnit"], bus_carrier=bus_carrier).dropna().groupby("carrier").sum().div(1e3).round(1)
-            ds = ds[ds>0]
+            ds = (
+                n.stats.optimal_capacity(
+                    components=["Generator", "Link", "StorageUnit"], 
+                    bus_carrier="low voltage", 
+                    groupby="carrier",
+                    aggregate_across_components=True
+                )
+                .loc[lambda x: x > 0]
+                .div(1e3)
+                .round(1)
+            )
+            
+            if not ds.empty:
+                optimal_capacity_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
 
-            optimal_capacity_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
-
-    ##### costs per carrier
-
-    ds = n.statistics.capex(drop_zero=True).dropna().groupby("carrier").sum().div(1e9).round(4)
+    # system capex per carrier in billion currency unit
+    ds = n.stats.capex().dropna().groupby("carrier").sum().div(1e9).round(4)
 
     costs_dict["capex"].loc[nc_files_idx, ds.index] = ds.values
-        
-    ds = n.statistics.opex(drop_zero=True).dropna().groupby("carrier").sum().div(1e9).round(4)
+
+    # system opex per carrier in billion currency unit
+    ds = n.stats.opex().dropna().groupby("carrier").sum().div(1e9).round(4)
 
     costs_dict["opex"].loc[nc_files_idx, ds.index] = ds.values
     
@@ -226,27 +265,18 @@ for nc_files_idx in nc_files.index:
     #         n.loads_t.p_set["H2 export"].mul(n.buses_t.marginal_price["H2 export"]).sum()/1e9
     #     )
 
-    ##### time and load averaged marginal prices per bus_carrier in EUR/MWh
+    # load averaged marginal prices per bus_carrier in currency/MWh
 
-    EXPORT_NDOES = []
-    for bus_carrier in ["H2","NH3","FT"]:
-        buses = n.buses.loc[n.buses.index.str.contains(bus_carrier)]
-        for bus in buses.index:
-            value = n.buses_t.marginal_price[bus].mean() # NB: hourly pattern is interesting! 
-            time_avg_marginal_price.at[nc_files_idx, bus] = value
-
-            if bus_carrier + " export" in n.loads_t.p.columns.unique():
-                demand = n.loads_t.p[bus_carrier + " export"]
-                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export"]).sum())/(demand.sum())
-                load_avg_marginal_price.at[nc_files_idx, bus] = value
-            elif bus_carrier + " export" in n.generators_t.p.columns.unique():
-                logger.warning(f"No exogenous load for {bus_carrier} export bus found")
-                logger.warning(f"Marginal prices are impacted by endogenous export and export prices!")
-                demand = -1*n.generators_t.p[bus_carrier + " export"]
-                value = ((demand*n.buses_t.marginal_price[bus_carrier + " export"]).sum())/(demand.sum())
-                load_avg_marginal_price.at[nc_files_idx, bus] = value
-            else:
-                logger.warning(f"No exogenous or endogenous load found for {bus_carrier} export bus in {nc_files_idx}")
+    bus_carriers_to_price = ["H2", "NH3", "FT", "HBI", "steel", "STEEL", "industry methanol", "shipping methanol", "MEOH"]
+    
+    prices_load_weighted = n.stats.prices(groupby_time=True, weighting="load")
+    
+    # Filter and assign prices for buses matching carrier names (with or without " export" suffix)
+    for bus_carrier in bus_carriers_to_price:
+        matching_buses = n.buses.index[n.buses.index.str.contains(bus_carrier)]
+        for bus in matching_buses:
+            if bus in prices_load_weighted.index:
+                load_avg_marginal_price.at[nc_files_idx, bus] = prices_load_weighted[bus]
 
 
 # %%
@@ -256,8 +286,6 @@ save_stats_dict(balance_dict, "balance_dict", sdir)
 save_stats_dict(optimal_capacity_dict, "optimal_capacity_dict", sdir)
 save_stats_dict(costs_dict, "costs_dict", sdir)
 
-to_csv_nafix(time_avg_marginal_price, sdir / "time_avg_marginal_price.csv")
-print(f"Saved time_avg_marginal_price to {sdir / 'time_avg_marginal_price.csv'}")
 to_csv_nafix(load_avg_marginal_price, sdir / "load_avg_marginal_price.csv")
 print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}")
 
@@ -265,17 +293,30 @@ print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}"
 # %%
 
 
-nh3_buses = n.buses[n.buses.index.str.contains("NH3")].index
-nh3_prices_per_t = n.buses_t.marginal_price[nh3_buses] * 5.17
-nh3_prices_per_t.round(0).plot(legend=False, title="NH3 €/t", drawstyle='steps')
+# nh3_buses = n.buses[n.buses.index.str.contains("NH3")].index
+# nh3_prices_per_t = n.buses_t.marginal_price[nh3_buses] * 5.17
+# nh3_prices_per_t.round(0).plot(legend=False, title="NH3 €/t", drawstyle='steps')
+# plt.show()
 
-h2_buses = n.buses[n.buses.index.str.contains("H2")].index
-h2_prices_per_t = n.buses_t.marginal_price[h2_buses] * 33.3333 / 1000
-h2_prices_per_t.round(0).plot(legend=False, title="H2 €/kg", drawstyle='steps')
+# h2_buses = n.buses[n.buses.index.str.contains("H2")].index
+# h2_prices_per_t = n.buses_t.marginal_price[h2_buses] * 33.3333 / 1000
+# h2_prices_per_t.round(0).plot(legend=False, title="H2 €/kg", drawstyle='steps')
+# plt.show()
 
-h2_prices_per_t_weekly = h2_prices_per_t.resample('W').mean()
-h2_prices_per_t_weekly.round(0).plot(legend=False, title="H2 €/kg (Weekly Mean)", drawstyle='steps')
 
-n.buses_t.marginal_price["Earth HBI"].round(0).plot(legend=False, title="HBI", drawstyle='steps')
+# h2_prices_per_t_weekly = h2_prices_per_t.resample('W').mean()
+# h2_prices_per_t_weekly.round(0).plot(legend=False, title="H2 €/kg (Weekly Mean)", drawstyle='steps')
+# plt.show()
 
-n.buses_t.marginal_price["Earth steel"].round(0).plot(legend=False, title="Steel", drawstyle='steps')
+
+# n.buses_t.marginal_price["Earth HBI"].round(0).plot(legend=False, title="HBI", drawstyle='steps')
+# plt.show()
+
+
+# n.buses_t.marginal_price["Earth steel"].round(0).plot(legend=False, title="Steel", drawstyle='steps')
+# plt.show()
+
+
+
+
+# %%
