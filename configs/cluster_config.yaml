@@ -2,7 +2,14 @@ __default__:
   partition: progress
   walltime: 24:00:00   # walltime limit for each job
   cpus_per_task: 16   # number of cores per job
-  mem_mb: 32000
+  mem_mb: 124000  # Increased memory allocation
   exclude: gpu0.omnia.cluster,gpu1.omnia.cluster,gpu2.omnia.cluster
   output: logs/{rule}/log-%j.out
   error: logs/{rule}/errlog-%j.err
+
+# build_solar_thermal_profiles:
+#   partition: progress
+#   walltime: 12:00:00
+#   cpus_per_task: 8
+#   mem_mb: 64000  # Specific memory allocation for this rule
+#   exclude: gpu0.omnia.cluster,gpu1.omnia.cluster,gpu2.omnia.cluster

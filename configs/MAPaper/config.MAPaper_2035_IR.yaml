@@ -8,7 +8,7 @@ summary_dir: results/
 foresight: overnight # TODO: csp, myopic, monte carlo in szenario A zeigen
 
 
-countries: ["ZA"]
+countries: ["MA"]
 # TODO per country: Insert country you want to model "EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/configuration.html#top-level-configuration
 
@@ -16,7 +16,7 @@ enable:
   retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing.
   retrieve_databundle_sector: false
   retrieve_cost_data: false # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
-  download_osm_data: false # If 'true', OpenStreetMap data will be downloaded for the above given countries
+  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries
   build_natura_raster: false # If True, then an exclusion raster will be build
   build_cutout: false
   # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
@@ -28,8 +28,8 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "DKS_ZA_2030_AB" # use this to keep track of runs with different settings
-  sector_name: "DKS_ZA_2030_AB" # use this to keep track of sector scenario runs
+  name: "MAPaper_2035" # use this to keep track of runs with different settings
+  sector_name: "MAPaper_2035" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -38,26 +38,26 @@ scenario:
   simpl: [""]
   ll: ["v1.1"]
   clusters: [10]
-  opts:
-  # - Co2L0.71 # GECO2024, 1.5°C scenario, value for south africa
-  - Co2L0.76 # GECO2024, 1.5°C scenario, value for south africa
-  # - Co2L0.81 # GECO2024, 1.5°C scenario, value for south africa
+  opts: 
+  - Co2L1.09
+  - ""
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2030
+  - 2035
   # - 2050
   sopts:
-  # - "1H"
   # - "6H"
   - "1H"
   # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
   demand:
-  - "RF"
-  # - "EL" 
+  # - "Exp"
+  - "IR"
   eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
-  # - "NH3v1.0+FTv1.0+MEOHv1.0+HBIv1.0+STEELv1.0"
-  - "NH3v0.5+FTv0.5+MEOHv0.5+HBIv0.5"
+  # - "H2v1.0"
+  # - "H2v1.0+HBIv1.0"
   # - ""
-  
+  # - "H2v1.0"
+  - "HBIv1.0+STEELv1.0"
+
 augmented_line_connection:
   add_to_snakefile: false # If True, includes this rule to the workflow
   new_line_type: ["HVAC", "HVDC"] # Expanded lines can be either ["HVAC"] or ["HVDC"] or both ["HVAC", "HVDC"]
@@ -76,7 +76,7 @@ load_options:
   scale: 1 # scales all load time-series, i.e. 2 = doubles load
 
 electricity:
-  co2base: 479.e+6 # 2019 from https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
+  co2base: 72.e+6 # 2019 from https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
   agg_p_nom_limits: data/agg_p_nom_minmax.csv
   extendable_carriers:
     Generator: [solar, onwind, offwind-ac, offwind-dc, OCGT, CCGT]
@@ -84,7 +84,7 @@ electricity:
     Store: [battery, H2]
     Link: [] # H2 pipeline
 
-  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') and not Name.str.contains('Komati|Hendrina|Grootvlei|Camden', case=False) # coal phase out plan ESKOM: https://wires.onlinelibrary.wiley.com/doi/full/10.1002/wene.70009
+  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
   custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
 lines:
@@ -96,19 +96,12 @@ renewable:
     normalization:
       method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
       year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
-    multiplier: 3.0 # multiplier applied after the normalization of the hydro production; default 1.0
-
-renewable:
-  hydro:
-    normalization:
-      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
-      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
-    multiplier: 3.0 # multiplier applied after the normalization of the hydro production; default 1.0
+    multiplier: 1.0 # multiplier applied after the normalization of the hydro production; default 1.0
 
 costs:
-  year: 2030
+  year: 2035
   version: v0.11.0
-  discountrate: [0.090] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [0.078] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
   fill_values:
     FOM: 0
@@ -118,7 +111,7 @@ costs:
     investment: 0
     lifetime: 25
     CO2 intensity: 0
-    discount rate: 0.090 # South Africa 0.103      0.090 
+    discount rate: 0.078 # Morocco 0.100      0.084
   # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -148,17 +141,17 @@ export:
   price: # market price at exit point (pre-trade) in Currency/MWh. Set to 0 for export target analysis with endogenous: false, for analysing marginal prices
     H2: 0
     NH3: 0
-    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta
     MEOH: 0
     HBI: 0
     STEEL: 0 
-  volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
-    H2: 0
-    NH3: 16.2 
-    FT: 1.9 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
-    MEOH: 2.3
-    HBI: 0.6
-    STEEL: 0 
+  volume: # [TWh/a, Mt/a, .inf.] max market potential volume, if endogenous is true; or export target if false
+    H2: 17
+    NH3: 0 
+    FT: 0.0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    MEOH: 0
+    HBI: 1.039006
+    STEEL: 1.288158
   store: true # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
   export_profile: "constant" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
@@ -179,7 +172,7 @@ custom_data:
   elec_demand: false
   heat_demand: false
   industry_totals: true # total industry energy and feedstock demands by country
-  industry_database: true
+  industry_database: false
   transport_demand: true # Set to true if share of ev or fcev are defined via custom energy_totals
   water_costs: false
   h2_underground: false
@@ -230,9 +223,8 @@ sector:
     spatial_oil: true
 
   heat_exogenous: true # if false, heat demand is exogenous and no heating technologies are modelled
-  district_heating: false # if false, heat demand is exogenous and no heating technologies are modelled
   district_heating:
-    potential: 0.2 #maximum fraction of urban demand which can be supplied by district heating
+    potential: 0.0 #maximum fraction of urban demand which can be supplied by district heating
     #increase of today's district heating demand to potential maximum district heating share
     #progress = 0 means today's district heating share, progress=-1 means maximum fraction of urban demand is supplied by district heating
     progress:
@@ -254,6 +246,18 @@ sector:
     2045: 0.21
     2050: 0.29
 
+  tes: true
+  tes_tau: # 180 day time constant for centralised, 3 day for decentralised
+    decentral: 3
+    central: 180
+  boilers: true
+  oil_boilers: false
+  chp: true
+  micro_chp: false
+  solar_thermal: false
+  heat_pump_sink_T: 55 #Celsius, based on DTU / large area radiators; used un build_cop_profiles.py
+  time_dep_hp_cop: true #time dependent heat pump coefficient of performance
+
   v2g: false #allows feed-in to grid from EV battery 
   bev_dsm: true #turns on EV battery
   bev_energy: 0.05 #average battery size in MWh
@@ -262,7 +266,7 @@ sector:
 
   biomass_transport: true # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
-  solid_biomass_potential: 83.9 # TWh/a, Potential of whole modelled area
+  solid_biomass_potential: 38.1 # TWh/a, Potential of whole modelled area
   biomass_to_liquid: true
   biomass_to_liquid_cc: true
   # electrobiofuels: false
@@ -310,25 +314,32 @@ sector:
   shipping_hydrogen_share:
     RF_2030: 0.0
     EL_2030: 0.0
-    RF_2035: 0.0
+    IR_2030: 0.0
+    Exp_2030: 0.0
     EL_2035: 0.0
-    RF_2050: 0.0
-    EL_2050: 0.0
+    IR_2035: 0.0
+    Exp_2035: 0.0
   shipping_ammonia_share:
-    RF_2030: 0.0
     EL_2030: 0.0
-    RF_2050: 0.39
-    EL_2050: 0.39
+    IR_2030: 0.0
+    Exp_2030: 0.0
+    EL_2035: 0.05
+    IR_2035: 0.05
+    Exp_2035: 0.05
   shipping_methanol_share:
-    RF_2030: 0.0
     EL_2030: 0.0
-    RF_2050: 0.51
-    EL_2050: 0.51
+    IR_2030: 0.0
+    Exp_2030: 0.0
+    EL_2035: 0.01
+    IR_2035: 0.01
+    Exp_2035: 0.01
   shipping_oil_share:
-    RF_2030: 1.0
     EL_2030: 1.0
-    RF_2050: 0.10
-    EL_2050: 0.10
+    IR_2030: 1.0
+    Exp_2030: 1.0
+    EL_2035: 0.94
+    IR_2035: 0.94
+    Exp_2035: 0.94
 
   #gadm_level: 1
   h2_cavern: true
@@ -361,8 +372,9 @@ sector:
 
   steel: # endogenous steel production, if not enabled, steel demand is still considered via the industrial demands as exogenous carrier loads
     enable: true
-    relocation: false # if false, the model cannot choose to produce steel in any node
+    relocation: true # if false, the model cannot choose to produce steel in any node
 
+    
   conventional_generation: # generator : carrier
     OCGT: gas
     CCGT: gas

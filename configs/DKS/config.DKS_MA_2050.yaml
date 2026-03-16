@@ -16,7 +16,7 @@ enable:
   retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing.
   retrieve_databundle_sector: false
   retrieve_cost_data: false # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
-  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries
+  download_osm_data: false # If 'true', OpenStreetMap data will be downloaded for the above given countries
   build_natura_raster: false # If True, then an exclusion raster will be build
   build_cutout: false
   # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
@@ -36,10 +36,10 @@ run:
 
 scenario:
   simpl: [""]
-  ll: ["v1.3"]
+  ll: ["v1.4"]
   clusters: [10]
   opts:
-  - Co2L0.068 # GECO2024, 1.5°C scenario, value for morocco and tunisia
+  - Co2L0.07 # GECO2024, 1.5°C scenario, value for morocco and tunisia
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
   - 2050
   sopts:
@@ -80,7 +80,7 @@ electricity:
     Store: [battery, H2]
     Link: [] # H2 pipeline
 
-  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (DateOut >= 2040 and Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
+  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
   custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
 lines:
@@ -104,7 +104,7 @@ renewable:
 costs:
   year: 2050
   version: v0.11.0
-  discountrate: [0.078] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  discountrate: [0.084] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
   rooftop_share: 0.05
   fill_values:
     FOM: 0
@@ -114,7 +114,7 @@ costs:
     investment: 0
     lifetime: 25
     CO2 intensity: 0
-    discount rate: 0.078 # Morocco 0.100      0.078
+    discount rate: 0.084 # Morocco 0.100      0.084
   # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -145,14 +145,16 @@ export:
     H2: 0
     NH3: 0
     FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    MEOH: 0
+    HBI: 0
+    STEEL: 0 
   volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
     H2: 114.0
     NH3: 0.0
     FT: 0.0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
-    # - 46.67 # 1.4 Mt (5% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
-    # - 93.33 # 2.8 Mt (8% of anticipated trade market of central scenario for 2030 of EG H2 strategy)
-    # - 125 # 3.75 Mt (5% of anticipated trade market of central scenario for 2040 of EG H2 strategy) 
-    # - 186.66 # 5.6 Mt (8%  of anticipated trade market of central scenario for 2040 of EG H2 strategy)
+    MEOH: 0
+    HBI: 0
+    STEEL: 0 
   store: true # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
   export_profile: "constant" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
@@ -223,6 +225,8 @@ sector:
   oil:
     spatial_oil: true
 
+  heat_exogenous: true #if false, heat demand is exogenous and no heating technologies are modelled
+  district_heating: false # if false, heat demand is exogenous and no heating technologies are modelled
   district_heating:
     potential: 0.2 #maximum fraction of urban demand which can be supplied by district heating
     #increase of today's district heating demand to potential maximum district heating share
@@ -290,8 +294,8 @@ sector:
     EL_2050: 0.68
 
   co2_network: true
-  co2_sequestration_potential: 100 # 200 #MtCO2/a sequestration potential for Europe 
-  co2_sequestration_cost: 400 #EUR/tCO2 for sequestration of CO2
+  co2_sequestration_potential: 10 # 200 #MtCO2/a sequestration potential for Europe 
+  co2_sequestration_cost: 80 #EUR/tCO2 for sequestration of CO2
   shipping_hydrogen_liquefaction: false
   shipping_average_efficiency: 0.4 #For conversion of fuel oil to propulsion in 2011
 
@@ -314,13 +318,13 @@ sector:
   shipping_methanol_share:
     RF_2030: 0.0
     EL_2030: 0.0
-    RF_2050: 0.0
-    EL_2050: 0.0
+    RF_2050: 0.51
+    EL_2050: 0.51
   shipping_oil_share:
     RF_2030: 1.0
     EL_2030: 1.0
-    RF_2050: 0.61
-    EL_2050: 0.61
+    RF_2050: 0.10
+    EL_2050: 0.10
 
   #gadm_level: 1
   h2_cavern: true
@@ -335,7 +339,7 @@ sector:
   space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 
   airport_sizing_factor: 3
 
-  methanol: false
+  methanol: true
     # regional_methanol_demand: false
     # methanol_reforming: false
     # methanol_reforming_cc: false

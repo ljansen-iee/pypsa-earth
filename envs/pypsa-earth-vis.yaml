@@ -8,7 +8,10 @@ dependencies:
   - snakemake-minimal<8
   - jupyterlab
   - plotly
+  - country_converter
   
   - pip:
     - kaleido==0.1.0post1 # for image export with plotly. locked version is for windows
+    - fake_useragent
+    - git+https://github.com/davide-f/google-drive-downloader@master  # google drive with fix for virus scan
     # - kaleido

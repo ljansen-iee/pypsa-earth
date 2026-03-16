@@ -1406,7 +1406,7 @@ rule build_base_energy_totals:
         unsd_paths="data/demand/unsd/paths/Energy_Statistics_Database.xlsx",
     output:
         energy_totals_base="resources/" + SECDIR + "energy_totals_base.csv",
-        unsd_export_path=directory("data/demand/unsd/data/"),
+        # unsd_export_path=directory("data/demand/unsd/data/"),
     script:
         "scripts/build_base_energy_totals.py"
 
@@ -1463,7 +1463,7 @@ rule build_solar_thermal_profiles:
         + SECDIR
         + "demand/heat/solar_thermal_rural_elec_s{simpl}_{clusters}_{planning_horizons}.nc",
     resources:
-        mem_mb=20000,
+        mem_mb=40000,
     benchmark:
         (
             "benchmarks/"
@@ -1694,7 +1694,7 @@ if config["foresight"] == "overnight":
             + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_python.log",
             memory=RESDIR
             + "logs/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_memory.log",
-        threads: 25
+        threads: 16
         resources:
             mem_mb=config["solving"]["mem"],
         benchmark:
@@ -1705,6 +1705,89 @@ if config["foresight"] == "overnight":
         script:
             "scripts/solve_network.py"
 
+rule plot_power_network:
+    input:
+        regions_onshore="resources/"
+        + RDIR
+        + "bus_regions/regions_onshore_elec_s{simpl}_{clusters}.geojson",
+        network=RESDIR
+            + "postnetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.nc",
+    output:
+        power_map=SDIR
+            + "maps/power/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+        power_map_svg=SDIR
+            + "maps/power/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+        power_map_csv_optimal_capacity=SDIR
+            + "maps/power/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+        power_map_csv_lines=SDIR
+            + "maps/power/csv_lines/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+    script:
+        "scripts/plot_power_network.py"
+
+rule plot_power_networks:
+    input:
+        expand(SDIR
+            + "maps/power/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+            **config["scenario"],**config["costs"],**config["export"],),
+        expand(SDIR
+            + "maps/power/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+            **config["scenario"],**config["costs"],**config["export"],),
+        expand(SDIR
+            + "maps/power/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"],),
+        expand(SDIR
+            + "maps/power/csv_lines/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"],),
+
+
+
+rule plot_hydrogen_network:
+    input:
+        regions_onshore="resources/" + RDIR + "bus_regions/regions_onshore_elec_s{simpl}_{clusters}.geojson",
+        gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
+        network=RESDIR + "postnetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.nc",
+    output:
+        hydrogen_map=SDIR + "maps/hydrogen/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+        hydrogen_map_svg=SDIR + "maps/hydrogen/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+        hydrogen_map_csv_optimal_capacity=SDIR + "maps/hydrogen/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+        hydrogen_map_csv_links=SDIR + "maps/hydrogen/csv_links/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+    script:
+        "scripts/plot_hydrogen_network.py"
+
+rule plot_hydrogen_networks:
+    input:
+        expand(SDIR + "maps/hydrogen/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen/csv_links/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"],),
+
+rule plot_network_balance:
+    input:
+        regions_onshore="resources/" + RDIR + "bus_regions/regions_onshore_elec_s{simpl}_{clusters}.geojson",
+        gadm_shapes="resources/" + RDIR + "shapes/gadm_shapes.geojson",
+        network=RESDIR + "postnetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.nc",
+    output:
+        hydrogen_map=SDIR + "maps/hydrogen_eb/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+        hydrogen_map_svg=SDIR + "maps/hydrogen_eb/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+        hydrogen_map_csv_optimal_capacity=SDIR + "maps/hydrogen_eb/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+        hydrogen_map_csv_links=SDIR + "maps/hydrogen_eb/csv_links/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+    script:
+        "scripts/plot_network_balance.py"
+
+rule plot_network_balances:
+    input:
+        expand(SDIR + "maps/hydrogen_eb/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.pdf",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen_eb/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.png",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen_eb/csv_optimal_capacity/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"]),
+        expand(SDIR + "maps/hydrogen_eb/csv_links/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            **config["scenario"],**config["costs"],**config["export"],),
 
 rule make_sector_summary:
     params:
