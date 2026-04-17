@@ -882,9 +882,14 @@ def add_co2_sequestration_limit(n, sns):
     vars_final_co2_stored = n.model["Store-e"].loc[sns[-1], co2_stores]
 
     lhs = (1 * vars_final_co2_stored).sum()
+    # Allow Morris perturbation to override the config value via n.meta
     rhs = (
-        n.config["sector"].get("co2_sequestration_potential", 5) * 1e6
-    )  # TODO change 200 limit (Europe)
+        n.meta.get(
+            "co2_sequestration_potential_override",
+            n.config["sector"].get("co2_sequestration_potential", 5),
+        )
+        * 1e6
+    )  # MtCO2 -> tCO2
 
     name = "co2_sequestration_limit"
 

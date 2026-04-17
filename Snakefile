@@ -78,6 +78,7 @@ wildcard_constraints:
     demand="[-+a-zA-Z0-9\.\s]*",
     h2export="[0-9]+(\.[0-9]+)?",
     eopts="[-+a-zA-Z0-9\.\s]*",
+    morris_run="mr[0-9]+",
     planning_horizons="20[2-9][0-9]|2100",
 
 
@@ -953,6 +954,152 @@ if config["monte_carlo"]["options"].get("add_to_snakefile", False) == True:
                 + RDIR
                 + "networks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{unc}.nc",
                 **config["scenario"],
+            ),
+
+
+# ---- Morris Method Sensitivity Analysis ----
+
+if config.get("morris", {}).get("add_to_snakefile", False):
+
+    _morris_params = config["morris"]["parameters"]
+    _morris_D = len(_morris_params)
+    _morris_N = config["morris"]["options"]["N"]
+    _morris_K = _morris_N * (_morris_D + 1)
+    config["scenario"]["morris_run"] = [f"mr{i}" for i in range(_morris_K)]
+
+    rule morris_sample:
+        params:
+            morris=config["morris"],
+        output:
+            sample_matrix="resources/" + RDIR + "morris/sample_matrix.npy",
+            problem="resources/" + RDIR + "morris/problem.json",
+        log:
+            "logs/" + RDIR + "morris/morris_sample.log",
+        benchmark:
+            "benchmarks/" + RDIR + "morris/morris_sample"
+        conda:
+            "envs/pypsa-earth-morris.yaml"
+        script:
+            "scripts/morris/morris_sample.py"
+
+    rule morris_perturb:
+        params:
+            morris=config["morris"],
+        input:
+            prenetwork=RESDIR
+                + "prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.nc",
+            sample_matrix="resources/" + RDIR + "morris/sample_matrix.npy",
+            problem="resources/" + RDIR + "morris/problem.json",
+        output:
+            RESDIR
+                + "morris/perturbed/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.nc",
+        log:
+            RESDIR
+                + "logs/morris/perturb_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.log",
+        benchmark:
+            (
+                RESDIR
+                + "benchmarks/morris/perturb_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}"
+            )
+        conda:
+            "envs/pypsa-earth-morris.yaml"
+        script:
+            "scripts/morris/morris_perturb.py"
+
+    rule solve_morris_network:
+        params:
+            solving=config["solving"],
+            augmented_line_connection=config["augmented_line_connection"],
+        input:
+            overrides=BASE_DIR + "/data/override_component_attrs",
+            network=RESDIR
+                + "morris/perturbed/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.nc",
+            costs="resources/" + RDIR + "costs_{planning_horizons}.csv",
+        output:
+            RESDIR
+                + "morris/solved/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.nc",
+        shadow:
+            "copy-minimal" if os.name == "nt" else "shallow"
+        log:
+            solver=RESDIR
+                + "logs/morris/solve_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}_solver.log",
+            python=RESDIR
+                + "logs/morris/solve_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}_python.log",
+            memory=RESDIR
+                + "logs/morris/solve_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}_memory.log",
+        threads: 16
+        resources:
+            mem_mb=config["solving"]["mem"],
+        benchmark:
+            (
+                RESDIR
+                + "benchmarks/morris/solve_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}"
+            )
+        script:
+            "scripts/solve_network.py"
+
+    rule morris_extract:
+        params:
+            morris=config["morris"],
+        input:
+            network=RESDIR
+                + "morris/solved/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.nc",
+            problem="resources/" + RDIR + "morris/problem.json",
+        output:
+            RESDIR
+                + "morris/metrics/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.csv",
+        log:
+            RESDIR
+                + "logs/morris/extract_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.log",
+        benchmark:
+            (
+                RESDIR
+                + "benchmarks/morris/extract_elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}"
+            )
+        conda:
+            "envs/pypsa-earth-morris.yaml"
+        script:
+            "scripts/morris/morris_extract.py"
+
+    rule morris_analyze:
+        params:
+            morris=config["morris"],
+        input:
+            metrics=expand(
+                RESDIR
+                    + "morris/metrics/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}_{morris_run}.csv",
+                morris_run=config["scenario"]["morris_run"],
+                allow_missing=True,
+            ),
+            sample_matrix="resources/" + RDIR + "morris/sample_matrix.npy",
+            problem="resources/" + RDIR + "morris/problem.json",
+        output:
+            indices=RESDIR
+                + "morris/sensitivity_indices_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+            plot_dir=directory(
+                RESDIR
+                    + "morris/plots_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}/"
+            ),
+        log:
+            RESDIR
+                + "logs/morris/analyze_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.log",
+        benchmark:
+            (
+                RESDIR
+                + "benchmarks/morris/analyze_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}"
+            )
+        conda:
+            "envs/pypsa-earth-morris.yaml"
+        script:
+            "scripts/morris/morris_analyze.py"
+
+    rule morris_all:
+        input:
+            expand(
+                RESDIR
+                    + "morris/sensitivity_indices_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_exp{eopts}.csv",
+                **config["scenario"],
+                **config["costs"],
             ),
 
 
@@ -2308,6 +2455,9 @@ rule run_scenario:
         )
         copyfile("config.yaml", output.copyconfig)
 
+
+
+include: "rules/stats.smk"
 
 
 rule run_all_scenarios:

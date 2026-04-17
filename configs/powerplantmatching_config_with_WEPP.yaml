@@ -53,7 +53,7 @@ EXTERNAL_DATABASE:
 WEPP:
   net_capacity: false
   reliability_score: 3
-  fn: C:/Users/ljansen/projects/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
+  fn: /mnt/data/gsa/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
   #C:/Users/ljansen/projects/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
   #/mnt/data/gsa/powerplantmatching/analysis/spg_wepp_other_Mar2023.csv
 
@@ -183,21 +183,3 @@ fuel_to_color:
   Hydrogen Storage: teal
   Electro-mechanical: teal
   Total: gold
-
-fhg_colors_15: [
-    "rgb(23,156,125)",   # green
-    "rgb(0,91,127)",     # steel blue
-    "rgb(166,187,200)",  # silver grey
-    "rgb(0,133,152)",  # petrol
-    "rgb(57,193,205)", # aqua
-    "rgb(178,210,53)",   # lime
-    "rgb(245,130,32)",   # orange
-    "rgb(51,124,153)",   # steel blue 1
-    "rgb(102,157,178)",  # steel blue 2
-    "rgb(153,189,204)",  # steel blue 3
-    "rgb(28,63,82)",     # graphit
-    "rgb(211,199,174)",  # sand
-    "rgb(253,185,19)",   # yellow
-    "rgb(187,0,86)",     # red
-    "rgb(124,21,77)",    # wine red
-]

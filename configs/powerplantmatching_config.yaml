@@ -25,7 +25,7 @@ matching_sources:
 - GSPT
 - GWPT
 - GHPT
-- WEPP
+# - WEPP
 # - GEM_GGPT  # to be enabled once GEM_GGPT is working
 # - EXTERNAL_DATABASE
 
@@ -41,7 +41,7 @@ fully_included_sources:
 - GSPT
 - GWPT
 - GHPT
-- WEPP
+# - WEPP
 # - GEM_GGPT  # to be enabled once GEM_GGPT is working
 # - EXTERNAL_DATABASE
 

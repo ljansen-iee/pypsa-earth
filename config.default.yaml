@@ -34,6 +34,14 @@ enable:
 
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
+# Post-processing stats extraction and aggregation (rules/stats.smk)
+# Override run_name_prefix, run_names, and summary_version in your config.yaml
+stats:
+  run_name_prefix: ""     # e.g. "WSA" – used as experiment label and summary dir prefix
+  run_names: []            # list of run names, e.g. ["WSA_MA_2050_low50", "WSA_MA_2050_vestas3"]
+  summary_version: "v1"   # appended to the summary output directory name
+  plot_summary_config: "post_processing/plot_summary.yaml"
+
 run:
   name: "" # use this to keep track of runs with different settings
   sector_name: "" # use this to keep track of sector scenario runs
@@ -438,6 +446,41 @@ monte_carlo:
       type: beta
       args: [0.5, 2]
 
+morris:
+  # Description: Morris Method sensitivity analysis (parameter screening).
+  # Uses SALib to generate a Morris sample matrix and analyze elementary effects.
+  # Total number of model runs = N * (D + 1), where D = number of parameters.
+  add_to_snakefile: false  # set true to enable Morris screening
+  options:
+    N: 4              # number of Morris trajectories
+    num_levels: 4     # number of grid levels for the Morris design
+    seed: 42
+  # Parameters to screen. Each entry defines a PyPSA network attribute to perturb.
+  # 'attr' is the PyPSA accessor used as n.{attr} (same syntax as monte_carlo uncertainties keys).
+  # 'bounds' are multiplicative scaling factor limits [lower, upper] applied as n.{attr} = n.{attr} * factor.
+  parameters:
+    - name: load_scaling
+      attr: loads_t.p_set
+      bounds: [0.8, 1.2]
+    - name: onwind_cf
+      attr: "generators_t.p_max_pu.loc[:, n.generators.carrier == 'onwind']"
+      bounds: [0.85, 1.15]
+    - name: solar_cf
+      attr: "generators_t.p_max_pu.loc[:, n.generators.carrier == 'solar']"
+      bounds: [0.85, 1.15]
+  # Result metrics to extract from solved networks using n.stats.* API (PyPSA >= 1.1).
+  # 'stat' maps to n.stats calls: 'capex+opex', 'optimal_capacity', 'energy_balance'.
+  # 'bus_carrier' is an optional filter passed to the n.stats call.
+  results:
+    - name: system_cost
+      stat: capex+opex
+    - name: H2_optimal_capacity
+      stat: optimal_capacity
+      bus_carrier: H2
+    - name: AC_optimal_capacity
+      stat: optimal_capacity
+      bus_carrier: AC
+
 # ------------------- SECTOR OPTIONS -------------------
 
 policy_config:
@@ -627,10 +670,10 @@ sector:
   solid_biomass_potential: 40 # TWh/a, Potential of whole modelled area
   biomass_to_liquid: false
   biomass_to_liquid_cc: true
-  # electrobiofuels: false
-  # biosng: false
-  # biosng_cc: false
-  # bioH2: false
+  electrobiofuels: false # BtL + H2 via Fischer-Tropsch for higher biogenic carbon utilization (experimental)
+  biosng: false # Solid biomass to synthetic natural gas
+  biosng_cc: false # Solid biomass to SNG with carbon capture (requires cc: true)
+  bioH2: false # Solid biomass to hydrogen with carbon capture (requires cc: true)
   
   efficiency_heat_oil_to_elec: 0.9
   efficiency_heat_biomass_to_elec: 0.9
@@ -729,6 +772,16 @@ sector:
   marginal_cost_storage: 0
   methanation: true
   methanol: true
+  methanol_to_oil: false # If true, adds methanol-to-kerosene conversion feeding into the oil bus
+  methanol_reforming: false # If true, adds methanol steam reforming (methanol → H2)
+  methanol_reforming_cc: false # If true, adds methanol steam reforming with carbon capture
+  biomass_to_methanol: false # If true, adds biomass-to-methanol gasification
+  biomass_to_methanol_cc: false # If true, adds biomass-to-methanol gasification with carbon capture
+  methanol_to_power: # Dict of methanol-fired power plant types to enable
+    ccgt: false
+    ccgt_cc: false
+    ocgt: false
+  use_methanolisation_waste_heat: 0 # Fraction of methanolisation waste heat fed to district heating (0 = off, 1 = full)
   ammonia: true
   steel: # endogenous steel production, if not enabled, steel demand is still considered via the industrial demands as exogenous carrier loads
     enable: true
@@ -744,6 +797,7 @@ sector:
   airport_sizing_factor: 3
 
   min_part_load_fischer_tropsch: 0.9
+  min_part_load_methanolisation: 0.3
 
   conventional_generation: # generator : carrier
     OCGT: gas

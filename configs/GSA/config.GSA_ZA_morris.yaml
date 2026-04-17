@@ -1,0 +1,530 @@
+# SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+results_dir: results/
+summary_dir: results/
+
+foresight: overnight # TODO: csp, myopic, monte carlo in szenario A zeigen
+
+
+countries: ["ZA"]
+# TODO per country: Insert country you want to model "EG", "NA", "MA", "ZA", "KE", "ET", "CG", "TZ", "GH", "TN", "NG"
+# Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/configuration.html#top-level-configuration
+
+enable:
+  retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing.
+  retrieve_databundle_sector: false
+  retrieve_cost_data: false # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
+  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries
+  build_natura_raster: false # If True, then an exclusion raster will be build
+  build_cutout: false
+  # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
+  # requires cds API key https://cds.climate.copernicus.eu/api-how-to
+  # More information https://atlite.readthedocs.io/en/latest/introduction.html#datasets
+  progress_bar: true # show progress bar during downloading routines and other long-running tasks
+
+
+custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
+
+run:
+  name: "GSA_ZA_morris" # use this to keep track of runs with different settings
+  sector_name: "GSA_ZA_morris" # use this to keep track of sector scenario runs
+  shared_cutouts: true # set to true to share the default cutout(s) across runs
+  # Note: value false requires build_cutout to be enabled
+  allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
+
+scenario:
+  simpl: [""]
+  ll: ["v1.0"]
+  clusters: [10]
+  opts: 
+  - Co2L0.25 # GECO2024, 1.5°C scenario, value for south africa
+  planning_horizons: # investment years for myopic and perfect; or costs year for overnight
+  - 2050
+  sopts:
+  # - "6H"
+  - "1H"
+  # - "144H" # 144 hours for 6 days, used for the 2050 planning horizon
+  demand:
+  - "RF"
+  # - "EL" 
+  eopts: # export options, e.g. H2m1.0+NH3m1.0+FTm1.0+H2v1.0+NH3v1.0+FTv1.0
+  # - "NH3v1.0+FTv1.0+MEOHv1.0+HBIv1.0+STEELv1.0"
+  - "NH3v0.5+FTv0.5+MEOHv0.5+HBIv0.5"
+  # - ""
+
+augmented_line_connection:
+  add_to_snakefile: false # If True, includes this rule to the workflow
+  new_line_type: ["HVAC", "HVDC"] # Expanded lines can be either ["HVAC"] or ["HVDC"] or both ["HVAC", "HVDC"]
+  
+cluster_options:
+  simplify_network:
+    remove_stubs: false
+    remove_stubs_across_borders: true
+  s_threshold_fetch_isolated: 0.05 # [-] a share of the national load for merging an isolated network into a backbone network
+  alternative_clustering: true # "False" use Voronoi shapes, "True" use GADM shapes
+
+load_options:
+  ssp: "ssp2-2.6" # shared socio-economic pathway (GDP and population growth) scenario to consider
+  weather_year: 2013 # Load scenarios available with different weather year (different renewable potentials)
+  prediction_year: 2030 # Load scenarios available with different prediction year (GDP, population) # TODO: adjust per planning horizon
+  scale: 1 # scales all load time-series, i.e. 2 = doubles load
+
+electricity:
+  co2base: 479.e+6 # 2019 from https://edgar.jrc.ec.europa.eu/dataset_ghg2024.
+  agg_p_nom_limits: data/agg_p_nom_minmax.csv
+  extendable_carriers:
+    Generator: [solar, onwind, offwind-ac, offwind-dc, OCGT, CCGT]
+    StorageUnit: [] # battery, H2
+    Store: [battery, H2]
+    Link: [] # H2 pipeline
+
+  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and not (Fueltype == 'Hard Coal') and not (DateIn < 2015 and Fueltype == 'CCGT') # Filter out powerplants that are not available in the planning horizon, e.g. coal powerplants after 2040
+  custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
+
+lines:
+  s_max_pu: 0.5
+  length_factor: 1.25
+
+renewable:
+  hydro:
+    normalization:
+      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
+      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
+    multiplier: 3.0 # multiplier applied after the normalization of the hydro production; default 1.0
+
+renewable:
+  hydro:
+    normalization:
+      method: eia # 'hydro_capacities' to rescale country hydro production by using hydro_capacities, 'eia' to rescale by eia data, false for no rescaling
+      year: 2019 # (optional) year of statistics used to rescale the runoff time series. When not provided, the cutout weather year is used
+    multiplier: 3.0 # multiplier applied after the normalization of the hydro production; default 1.0
+
+costs:
+  year: 2050
+  version: v0.11.0
+  discountrate: [0.090] #, 0.086, 0.071] --> https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2023/May/IRENA_The_cost_of_financing_renewable_power_2023.pdf
+  rooftop_share: 0.05
+  fill_values:
+    FOM: 0
+    VOM: 0
+    efficiency: 1
+    fuel: 0
+    investment: 0
+    lifetime: 25
+    CO2 intensity: 0
+    discount rate: 0.090 # South Africa 0.103      0.090 
+  # ------------------- SECTOR OPTIONS -------------------
+
+policy_config:
+  hydrogen:
+    temporal_matching: "h2_hourly_matching" # either "h2_yearly_matching", "no_res_matching", "no_res_matching", "h2_hourly_matching"
+    spatial_matching: false
+    technology_matching_for_derivatives_and_export: true # Set to "true" to constraint the total H2 production from specific technologies for producing >= the total H2 consumed in NH3, FT and for direct H2 export. "false" ignores the option.
+    additionality: false # RE electricity is equal to the amount required for additional hydrogen export compared to the 0 export case ("reference_case")
+    allowed_excess: 1.0
+    is_reference: false # Whether or not this network is a reference case network, relevant only if additionality is _true_
+    remove_h2_load: false #Whether or not to remove the h2 load from the network, relevant only if is_reference is _true_
+    path_to_ref: "" # Path to the reference case network for additionality calculation, relevant only if additionality is _true_ and is_reference is _false_
+    re_country_load: false # Set to "True" to force the RE electricity to be equal to the electricity required for hydrogen export and the country electricity load. "False" excludes the country electricity load from the constraint.
+
+demand_data:
+  update_data: true # if true, the workflow downloads the energy balances data saved in data/demand/unsd/data again. Turn on for the first run.
+  base_year: 2019
+
+  other_industries: false # Whether or not to include industries that are not specified. some countries have has exaggerated numbers, check carefully.
+  aluminium_year: 2019 # Year of the aluminium demand data specified in `data/AL_production.csv`
+
+fossil_reserves:
+  oil: 0 # NB: fossil_reserves are implemented as store with e_initial, which may lead to unwanted fuel export in edge cases
+
+export:
+  endogenous: false # If true, the model determines the export demands under max market volume limitations, otherwise export targets are set exogenously
+  price: # market price at exit point (pre-trade) in Currency/MWh. Set to 0 for export target analysis with endogenous: false, for analysing marginal prices
+    H2: 0
+    NH3: 0
+    FT: 0 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    MEOH: 0
+    HBI: 0
+    STEEL: 0 
+  volume: # TWh/a or .inf. max market potential volume, if endogenous is true; or export target if false
+    H2: 0
+    NH3: 23.2
+    FT: 21.4 # FT crude based liquid fuels like e-SAF, e-fuel, e-kerosene, e-naphta 
+    MEOH: 6.1
+    HBI: 3.3
+    STEEL: 0 
+  store: true # [True, False] # specifies whether an export store to balance demand is implemented
+  store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
+  export_profile: "constant" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
+  ship:
+    ship_capacity: 0.4 # TWh/ship # 0.05 TWh for new ones, 0.003 TWh for Susio Frontier, 0.4 TWh according to Hampp2021: "Corresponds to 11360 t H2 (l) with LHV of 33.3333 Mwh/t_H2. Cihlar et al 2020 based on IEA 2019, Table 3-B"
+    travel_time: 288 # hours # From Agadir to Rotterdam and back (12*24)
+    fill_time: 24 # hours, for 48h see Hampp2021
+    unload_time: 24 # hours for 48h see Hampp2021
+
+
+custom_data:
+  renewables: # ['csp', 'rooftop-solar', 'solar']
+    update_data: true # if true then custom {resource_class}{car}-{year}.csv and {resource_class}{car}-{year}-p_max_pu.csv files must be placed in "custom/RUNNAME/renewables"
+    carrier: ["solar","onwind"] # ['csp', 'rooftop-solar', 'solar']
+    carriers_to_drop: ["offwind-ac", "offwind-dc"] 
+    resource_classes: 3
+    overwrite_costs: false # if false, capital costs are taken from the network. if true, costs are taken from the custom/RUNNAME/renewables/{resource_class}{car}-{year}-p_max_pu.csv
+  elec_demand: false
+  heat_demand: false
+  industry_totals: true # total industry energy and feedstock demands by country
+  industry_database: true
+  transport_demand: true # Set to true if share of ev or fcev are defined via custom energy_totals
+  water_costs: false
+  h2_underground: false
+  add_existing: false
+  custom_sectors: false
+  custom_demands: # TODO: ESTEFANIA ADD THE WORKFLOW FOR DEMAND DATA TOO
+    update_data: true # if true then custom .csv file must be placed in "data/custom/energy_tatals_{w.demand}_{w.planning_horizons}.csv", If "False" the workflow works with default data.
+    # altdemands: "MA_iee_GlobalNZ" #"MA_NH2Strategy","MA_iee_baseline" if "True" then custom .csv file must be placed in "data/custom/xxxx.csv" , If "False" the workflow works with default data.
+  gas_network: false # If "True" then a custom .csv file must be placed in "resources/custom_data/pipelines.csv" , If "False" the user can choose btw "greenfield" or Model built-in datasets. Please refer to ["sector"] below.
+  export_ports: true # If "True" then a custom .csv file must be placed in "data/custom/export_ports.csv"
+  airports: false # If "True" then a custom .csv file must be placed in "data/custom/airports.csv". Data format for aiports must be in the format of the airports.csv file in the data folder.
+
+industry:
+  reference_year: 2015
+
+
+sector:
+  gas:
+    spatial_gas: true # ALWAYS TRUE
+    network: false # ALWAYS FALSE for now (NOT USED)
+    network_data: GGIT # Global dataset -> 'GGIT' , European dataset -> 'IGGIELGN'
+    network_data_GGIT_status: ["Construction", "Operating", "Idle", "Shelved", "Mothballed", "Proposed"]
+  hydrogen:
+    network: true
+    H2_retrofit_capacity_per_CH4: 0.6
+    network_limit: false #10000 #GWkm 
+    network_routes: greenfield # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
+    gas_network_repurposing: false # If true -> ["sector"]["gas"]["network"] is automatically false
+    underground_storage: false
+    hydrogen_colors: false
+    set_color_shares: false
+    blue_share: 0.40
+    pink_share: 0.05
+    water_input: 0.6 # Pure water consumption for electrolysis in [m3/MWh_H2] (20m3/kg_H2 -> 0.6m3/MWh_H2). Activate water consumption with sector[water][enable].
+  water:
+    enable: true # Enable seawater desalination or other water treatment methods for ultra pure water supply
+    spatial_water: false # false means, water treatment is suppling to global purewater node ("Earth purewater"). true is not implemented yet.
+    production_technologies: ["seawater desalination"] # Currently only seawater desalination in regions with ports.
+  coal:
+    spatial_coal: true
+    shift_to_elec: true # If true, residential and services demand of coal is shifted to electricity. If false, the final energy demand of coal is disregarded
+  lignite:
+    spatial_lignite: false
+
+  international_bunkers: true #Whether or not to count the emissions of international aviation and navigation
+
+  oil:
+    spatial_oil: true
+
+  heat_exogenous: true #if false, heat demand is exogenous and no heating technologies are modelled
+  district_heating:
+    potential: 0.2 #maximum fraction of urban demand which can be supplied by district heating
+    #increase of today's district heating demand to potential maximum district heating share
+    #progress = 0 means today's district heating share, progress=-1 means maximum fraction of urban demand is supplied by district heating
+    progress:
+      2030: 0.3
+      2035: 0.3
+      2040: 0.6
+      2050: 1.0
+    district_heating_loss: 0.15
+  reduce_space_heat_exogenously: true # reduces space heat demand by a given factor (applied before losses in DH)
+  # this can represent e.g. building renovation, building demolition, or if
+  # the factor is negative: increasing floor area, increased thermal comfort, population growth
+  reduce_space_heat_exogenously_factor: # per unit reduction in space heat demand
+  # the default factors are determined by the LTS scenario from http://tool.european-calculator.eu/app/buildings/building-types-area/?levers=1ddd4444421213bdbbbddd44444ffffff11f411111221111211l212221
+    2020: 0.10  # this results in a space heat demand reduction of 10%
+    2025: 0.09  # first heat demand increases compared to 2020 because of larger floor area per capita
+    2030: 0.09
+    2035: 0.11
+    2040: 0.16
+    2045: 0.21
+    2050: 0.29
+
+  v2g: false #allows feed-in to grid from EV battery 
+  bev_dsm: true #turns on EV battery
+  bev_energy: 0.05 #average battery size in MWh
+  bev_availability: 0.5 #How many cars do smart charging
+
+
+  biomass_transport: true # biomass transport between nodes
+  biomass_transport_default_cost: 0.1 #EUR/km/MWh
+  solid_biomass_potential: 143.7 # TWh/a, Potential of whole modelled area
+  biomass_to_liquid: true
+  biomass_to_liquid_cc: true
+  electrobiofuels: true # BtL + H2 via Fischer-Tropsch for higher biogenic carbon utilization (experimental)
+  biosng: false # Solid biomass to synthetic natural gas
+  biosng_cc: false # Solid biomass to SNG with carbon capture (requires cc: true)
+  bioH2: true # Solid biomass to hydrogen with carbon capture (requires cc: true)
+  
+  biogas_potential: 1.4 # TWh/a, Potential of whole modelled area 
+  # TODO per country: conservative assumptions is to take 3% of biofuel/bioenergy from https://unstats.un.org/unsd/energystats/dataPortal/, divide value by 3600 TJ/TWh
+
+  electricity_distribution_grid: false # adds low voltage buses and shifts AC loads, BEVs, heat pumps, and resistive heaters, micro CHPs to low voltage buses if technologies are present
+  solar_rooftop: false # adds distribution side customer rooftop PV (only work if electricity_distribution_grid: true)
+  home_battery: false # adds home batteries to low voltage buses ((only work if electricity_distribution_grid: true)
+
+  land_transport_fuel_cell_share: # 1 means all FCEVs HERE
+  # https://www.iea.org/reports/road-transport#dashboard. Slightly lower values compared to global average.
+  # TODO per country: Double check for next iterations
+  # land transport includes road and rail. 
+  # Consider share of rail transport and country-specific issues with overhead electricity lines for rail system --> larger H2 share
+    RF_2030: 0.00
+    EL_2030: 0.00
+    RF_2035: 0.01
+    EL_2035: 0.02
+    RF_2050: 0.08
+    EL_2050: 0.12
+
+  land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
+    RF_2030: 0.03
+    EL_2030: 0.05
+    RF_2035: 0.08
+    EL_2035: 0.12
+    RF_2050: 0.45
+    EL_2050: 0.68
+
+  co2_network: true
+  co2_sequestration_potential: 10 # 200 #MtCO2/a sequestration potential for Europe 
+  co2_sequestration_cost: 30 #EUR/tCO2 for sequestration of CO2
+  shipping_hydrogen_liquefaction: false
+  shipping_average_efficiency: 0.4 #For conversion of fuel oil to propulsion in 2011
+
+  # TODO: Double check for future iterations
+  # https://www.iea.org/reports/aviation-and-shipping#dashboard --> we choose lower values compared to IEA because methanol ships are currently ordnered instead of ammonia ships.
+  # Share of hydrogen or hydrogen-equivalents of ammonia shipping. Might depend on country and routes.
+  # Fischer-tropsch based shipping e-fuel share is result of optimisation and co2limit. Co2L must consider international shipping emissions. --> to be discussed.
+  shipping_hydrogen_share:
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2035: 0.0
+    EL_2035: 0.0
+    RF_2050: 0.0
+    EL_2050: 0.0
+  shipping_ammonia_share:
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2050: 0.39
+    EL_2050: 0.39
+  shipping_methanol_share:
+    RF_2030: 0.0
+    EL_2030: 0.0
+    RF_2050: 0.51
+    EL_2050: 0.51
+  shipping_oil_share:
+    RF_2030: 1.0
+    EL_2030: 1.0
+    RF_2050: 0.10
+    EL_2050: 0.10
+
+  #gadm_level: 1
+  h2_cavern: true
+  marginal_cost_storage: 0
+  methanation: true
+  helmeth: false
+  dac: true
+  SMR: false
+  SMR CC: false
+  cc_fraction: 0.9
+  cc: true
+  space_heat_share: 0.6 # the share of space heating from all heating. Remainder goes to water heating. # TODO: Double check for next iterations. Space heat share is often lower or equal to water heating, but space heat+cooling is significant 60% 
+  airport_sizing_factor: 3
+
+  methanol: true
+    # regional_methanol_demand: false
+    # methanol_reforming: false
+    # methanol_reforming_cc: false
+    # methanol_to_kerosene: false
+    # methanol_to_power:
+    #   ccgt: false
+    #   ccgt_cc: false
+    #   ocgt: false
+    #   allam: false
+    # biomass_to_methanol: false
+    # biomass_to_methanol_cc: false
+  ammonia: true
+  min_part_load_fischer_tropsch: 0.5
+  min_part_load_methanolisation: 0.3
+
+  steel: # endogenous steel production, if not enabled, steel demand is still considered via the industrial demands as exogenous carrier loads
+    enable: true
+    relocation: false # if false, the model cannot choose to produce steel in any node
+
+  conventional_generation: # generator : carrier
+    OCGT: gas
+    CCGT: gas
+    oil: oil
+    coal: coal
+    lignite: lignite
+    biomass: biomass
+  keep_existing_capacities: true
+
+morris:
+  # Description: Morris Method sensitivity analysis (parameter screening).
+  # Uses SALib to generate a Morris sample matrix and analyze elementary effects.
+  # Focus: Marginal export price for NH3 and FT (Fischer-Tropsch) fuels, ZA 2050.
+  #
+  # Total model runs = N * (D + 1) where D = number of parameters.
+  # With D=19 and N=4: 4 * 20 = 80 runs (suitable for initial screening).
+  # Increase N to 10+ for publication-quality estimates of mu* and sigma.
+  add_to_snakefile: true  # set true to enable Morris screening
+  options:
+    N: 10              # number of Morris trajectories (increase to 10 for robust results)
+    num_levels: 4     # number of grid levels for the Morris design
+    seed: 42
+
+  # -----------------------------------------------------------------------
+  # Parameters to screen (D = 19).
+  # All bounds are MULTIPLICATIVE factors applied as: n.{attr} = n.{attr} * factor
+  # This mirrors the monte_carlo.py perturbation convention.
+  #
+  # CAPEX parameters use the "multiplier trick": a shared macro_tech_trend
+  # captures correlated global cost trends, while per-technology _dev params
+  # capture residual tech-specific uncertainty.  Effective factor =
+  # macro_tech_trend * deviation.  This avoids unrealistic scenarios where
+  # one technology is very cheap while another is very expensive.
+  #
+  # Production chains targeted:
+  #   NH3: RE → H2 Electrolysis → Haber-Bosch (+ ASU N2) → NH3 → export
+  #   FT:  RE → H2 Electrolysis + DAC CO2 → Fischer-Tropsch → FT fuel → export
+  # -----------------------------------------------------------------------
+  parameters:
+
+    - name: ac_load_scaling
+      attr: "loads_t.p_set.loc[:, n.loads.bus.isin(n.buses.index[n.buses.carrier == 'AC']) | (n.loads.carrier == 'land transport EV')]"
+      bounds: [0.8, 1.2]
+
+    - name: oil_load_scaling
+      attr: "loads_t.p_set.loc[:, n.loads.carrier.str.contains('oil')]"
+      bounds: [0.8, 1.2]
+
+    - name: onwind_cf
+      attr: "generators_t.p_max_pu.loc[:, n.generators.carrier == 'onwind']"
+      bounds: [0.85, 1.0]
+
+    - name: solar_cf
+      attr: "generators_t.p_max_pu.loc[:, n.generators.carrier == 'solar']"
+      bounds: [0.85, 1.0]
+
+    - name: dunkelflaute_penalty
+      attr: "generators_t.p_max_pu.loc['2013-06-17':'2013-06-23', n.generators.carrier.isin(['solar', 'onwind'])]"
+      bounds: [0.3, 1.0]
+
+    - name: macro_tech_trend
+      type: macro
+      bounds: [1.0, 1.2]
+
+    - name: onwind_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "generators.loc[n.generators.carrier == 'onwind', 'capital_cost']"
+      bounds: [0.9, 1.1]
+
+    - name: solar_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "generators.loc[n.generators.carrier == 'solar', 'capital_cost']"
+      bounds: [0.9, 1.1]
+
+    - name: electrolysis_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "links.loc[n.links.carrier == 'H2 Electrolysis', 'capital_cost']"
+      bounds: [0.6, 1.0]
+
+    - name: electrolysis_efficiency
+      attr: "links.loc[n.links.carrier == 'H2 Electrolysis', 'efficiency']"
+      bounds: [0.9, 1.1]
+
+    - name: fischer_tropsch_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "links.loc[n.links.carrier == 'Fischer-Tropsch', 'capital_cost']"
+      bounds: [0.9, 1.1]
+
+    - name: dac_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "links.loc[n.links.carrier == 'DAC', 'capital_cost']"
+      bounds: [0.6, 1.0]
+
+    - name: battery_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "stores.loc[n.stores.carrier == 'battery', 'capital_cost']"
+      bounds: [0.5, 1.0]
+
+    - name: h2_store_capex_dev
+      type: capex_deviation
+      macro: macro_tech_trend
+      attr: "stores.loc[n.stores.carrier == 'H2 Store Tank', 'capital_cost']"
+      bounds: [0.9, 1.1]
+
+    - name: co2_sequestration
+      type: co2_sequestration
+      base_value: 10
+      bounds: [1.0, 5.0]
+
+    - name: solid_biomass_potential
+      attrs:
+        - "stores.loc[n.stores.carrier == 'solid biomass', 'e_nom']"
+        - "stores.loc[n.stores.carrier == 'solid biomass', 'e_initial']"
+      bounds: [1.0, 2.0]
+
+    - name: solid_biomass_cost
+      attr: "stores.loc[n.stores.carrier == 'solid biomass', 'marginal_cost']"
+      bounds: [0.25, 1.0]
+
+    - name: biogas_potential
+      attrs:
+        - "stores.loc[n.stores.carrier == 'biogas', 'e_nom']"
+        - "stores.loc[n.stores.carrier == 'biogas', 'e_initial']"
+      bounds: [1.0, 20.0]
+
+    - name: discount_rate
+      type: discount_rate
+      base_value: 0.090
+      bounds: [0.8, 1.2]
+
+  results:
+    - name: NH3_export_price
+      stat: export_marginal_price
+      bus_carrier: NH3
+
+    - name: FT_export_price
+      stat: export_marginal_price
+      bus_carrier: FT
+
+    - name: system_cost
+      stat: capex+opex
+
+    - name: H2_optimal_capacity
+      stat: optimal_capacity
+      bus_carrier: H2
+
+    - name: NH3_optimal_capacity
+      stat: optimal_capacity
+      bus_carrier: NH3
+
+    - name: AC_optimal_capacity
+      stat: optimal_capacity
+      bus_carrier: AC
+
+
+
+solving:
+  solver:
+      name: gurobi
+      options: gurobi-default
+  solver_options:
+    gurobi-default:
+      threads: 16
+      BarHomogeneous: 1 # Use homogeneous barrier if standard does not converge
