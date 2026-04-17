@@ -16,15 +16,18 @@ warnings.simplefilter(action='ignore', category=DeprecationWarning) # Comment ou
 from plot_helpers import (
     chdir_to_root_dir,
     to_csv_nafix,
+    prepare_dataframe,
+    set_scen_col_MAPaper,
+    get_scen_col_function,
 )
 
 chdir_to_root_dir()
 
 #%%
 
-run_name_prefix = "MAPaper"  # Experiment name. It can be freely chosen.
+run_name_prefix = "WSA"  # Experiment name. It can be freely chosen.
 
-sdir = Path.cwd() / "results" / f"{run_name_prefix}_summary_v6"
+sdir = Path.cwd() / "results" / f"{run_name_prefix}_summary_v1"
 sdir.mkdir(exist_ok=True, parents=True)
 
 run_names = [
@@ -45,9 +48,13 @@ run_names = [
     # "DKS_ZA_2030_AB",
     # "DKS_ZA_2050_AB",
     # # "MAPaper_2030",
-    "MAPaper_2035",
+    # "MAPaper_2035",
     # "MAPaper_2035_best",
     # "MAPaper_2035_worst",
+    
+    "WSA_MA_2050_low50",
+    "WSA_MA_2050_vestas3",
+    # "WSA_MA_2050_sep50",
 ]
 
 #%%
@@ -60,7 +67,7 @@ def extract_wildcards_from_filename(filename):
     
     Using the Snakemake wildcard constraints of PyPSA-Earth for the pattern matching.
     """
-    pattern = r"elec_s([a-zA-Z0-9]*)_([0-9]+(?:m|flex)?)_ec_l([vc](?:[0-9.]+|opt|all)|all)_([^_]*)_([a-zA-Z0-9+\-.]+)_([0-9]+)_([0-9.]+)_([a-zA-Z0-9+\-.]+)_exp(.+?)\.nc"
+    pattern = r"elec_s([a-zA-Z0-9]*)_([0-9]+(?:m|flex)?)_ec_l([vc](?:[0-9.]+|opt|all)|all)_([^_]*)_([a-zA-Z0-9+\-.]+)_([0-9]+)_([0-9.]+)_([a-zA-Z0-9+\-.]+)_exp(.*?)\.nc"
     match = re.search(pattern, filename)
     if match:
         simpl, clusters, ll, opts, sopts, year, discountrate, demand, eopts = match.groups()
@@ -109,16 +116,10 @@ def save_stats_dict(stats_dict, stats_name, path_dir):
         to_csv_nafix(df, path_dir / f"{stats_name}_{key}.csv")
         print(f"Saved {key} to {path_dir / f'{stats_name}_{key}.csv'}")
 
-# NOTE: Config file names must be based on the run name in a folder with run_name_prefix
-configs_dict = {
-    run_name: yaml.safe_load(
-        Path(f"configs/{run_name_prefix}/config.{run_name}.yaml").read_text()
-    )
-    for run_name in run_names
-}
+results_dir = "results"  # base results directory
 
 postnetworks_dict = {
-    run_name: Path.cwd() / configs_dict[run_name]["results_dir"] / f"{run_name}" / "postnetworks"
+    run_name: Path.cwd() / results_dir / run_name / "postnetworks"
     for run_name in run_names
 }
 
@@ -129,13 +130,10 @@ cols = ["run_name_prefix", "run_name", "country", "year", "simpl", "clusters", "
 nc_files_data = []
 
 for run_name in run_names:
-    config = configs_dict[run_name]
-    countries = config["countries"]
-    
-    # NOTE: The following code assumes only one country is selected per run
-    if len(countries) > 1:
-        raise ValueError(f"Run {run_name} has multiple countries: {countries}.")
-    country = countries[0] if countries else "unknown"
+    # NOTE: country is inferred as the segment immediately after the run_name_prefix
+    # e.g. run_name_prefix="WSA", run_name="WSA_MA_2050_low50" -> country="MA"
+    # Adjust manually if run names don't follow this convention.
+    country = run_name.removeprefix(run_name_prefix + "_").split("_")[0]
     
     for file in files_in_folder_dict.get(run_name, []):
         wcs = extract_wildcards_from_filename(file.name)
@@ -156,11 +154,42 @@ if nc_files.empty:
 
 #%%
 
+def calculate_gwkm(n, selection=None, decimals=1, which="optimal"):
+    # from https://github.com/fneum/spatial-sector/blob/main/notebooks/single.py.ipynb
+    if selection is None:
+        selection = [
+            "H2 pipeline",
+            "H2 pipeline retrofitted",
+            "gas pipeline",
+            "gas pipeline new",
+            "DC",
+        ]
+
+    gwkm = n.links.loc[n.links.carrier.isin(selection)]
+
+    if which == "optimal":
+        link_request = "p_nom_opt"
+        line_request = "s_nom_opt"
+    elif which == "added":
+        link_request = "(p_nom_opt - p_nom)"
+        line_request = "(s_nom_opt - s_nom)"
+    elif which == "existing":
+        link_request = "p_nom"
+        line_request = "s_nom"
+
+    gwkm = gwkm.eval(f"length*{link_request}").groupby(gwkm.carrier).sum() / 1e3  # GWkm
+    gwkm["AC"] = n.lines.eval(f"length*{line_request}").sum() / 1e3  # GWkm
+
+    gwkm.index.name = None
+
+    return gwkm.round(decimals)
+
+
 # initialise dicts per metric (market balance, optimal capacities, costs, marginal prices) with dataframes per bus_carrier or other groups
 
 balance_dict = init_stats_dict(nc_files, keys=[
     "AC", "H2", "oil", "gas", "co2 stored", "co2", "methanol", "NH3", "steel", "HBI", "solid biomass", "biogas",
-    # "freshwater"
+    "H2O", "purewater", "seawater",
     ], name="bus_carrier")
 
 optimal_capacity_dict = init_stats_dict(nc_files, keys=["AC", "H2", "methanol", "NH3", "steel", "HBI"], name="bus_carrier")
@@ -169,6 +198,14 @@ costs_dict = init_stats_dict(nc_files, keys=["capex", "opex"], name="costs")
 
 load_avg_marginal_price = pd.DataFrame(index=nc_files.index, columns=["H2 export", "FT export", "NH3 export"])
 load_avg_marginal_price.columns.name = "bus" # NB: this is spatially resolved.
+
+gwkm_dict = {
+    "AC": pd.DataFrame(index=nc_files.index, columns=["optimal", "added", "existing", "ratio"]),
+    "H2 pipeline": pd.DataFrame(index=nc_files.index, columns=["optimal", "added", "existing", "ratio"])
+}
+
+stores = pd.DataFrame(index=nc_files.index, columns=["H2 Store Tank", "H2 UHS", "battery", "home battery"])
+stores.columns.name = "bus" # NB: this is spatially resolved.
 
 pypsa.options.params.statistics.nice_names = False
 pypsa.options.params.statistics.drop_zero = False
@@ -180,6 +217,9 @@ for nc_files_idx in nc_files.index:
 
     # energy balance per bus_carrier in TWh
     for bus_carrier in balance_dict.keys():
+
+        if bus_carrier not in n.buses.carrier.unique():
+            continue
 
         ds = (
             n.stats.energy_balance(
@@ -246,6 +286,9 @@ for nc_files_idx in nc_files.index:
             if not ds.empty:
                 optimal_capacity_dict[bus_carrier].loc[nc_files_idx, ds.index] = ds.values
 
+                if "electricity distribution grid" in optimal_capacity_dict[bus_carrier].columns:
+                    optimal_capacity_dict[bus_carrier] = optimal_capacity_dict[bus_carrier].drop("electricity distribution grid", axis=1)
+
     # system capex per carrier in billion currency unit
     ds = n.stats.capex().dropna().groupby("carrier").sum().div(1e9).round(4)
 
@@ -255,6 +298,16 @@ for nc_files_idx in nc_files.index:
     ds = n.stats.opex().dropna().groupby("carrier").sum().div(1e9).round(4)
 
     costs_dict["opex"].loc[nc_files_idx, ds.index] = ds.values
+
+    # expanded storage capacity in GWh
+    ec_stores = n.stats.expanded_capacity(
+                components=["Store"], 
+                groupby="carrier",
+                aggregate_across_components=True
+            )
+
+    cols = stores.columns.intersection(ec_stores.index)
+    stores.loc[nc_files_idx, cols] = ec_stores.div(1e3).round(1)[cols] # GWh
     
     # ASSUMPTIONS: assume marginal costs of last unit can be earned as export price for all export
     # adding those revenues for export as negative opex costs
@@ -267,7 +320,7 @@ for nc_files_idx in nc_files.index:
 
     # load averaged marginal prices per bus_carrier in currency/MWh
 
-    bus_carriers_to_price = ["H2", "NH3", "FT", "HBI", "steel", "STEEL", "industry methanol", "shipping methanol", "MEOH"]
+    bus_carriers_to_price = ["H2", "NH3", "FT", "HBI", "steel", "STEEL", "industry methanol", "shipping methanol", "MEOH", "H2O", "purewater", "seawater"]
     
     prices_load_weighted = n.stats.prices(groupby_time=True, weighting="load")
     
@@ -277,6 +330,17 @@ for nc_files_idx in nc_files.index:
         for bus in matching_buses:
             if bus in prices_load_weighted.index:
                 load_avg_marginal_price.at[nc_files_idx, bus] = prices_load_weighted[bus]
+
+    # Grid GW·km (AC lines and H2 pipelines)
+    try:
+        df_gwkm = pd.DataFrame({key: calculate_gwkm(n, which=key) for key in ["optimal", "added", "existing"]})
+        df_gwkm["ratio"] = df_gwkm["added"] / df_gwkm["existing"].replace(0, pd.NA)
+        if "AC" in df_gwkm.index:
+            gwkm_dict["AC"].loc[nc_files_idx, :] = df_gwkm.loc["AC", ["optimal", "added", "existing", "ratio"]].values
+        if "H2 pipeline" in df_gwkm.index:
+            gwkm_dict["H2 pipeline"].loc[nc_files_idx, :] = df_gwkm.loc["H2 pipeline", ["optimal", "added", "existing", "ratio"]].values
+    except Exception as e:
+        print(f"Warning: Could not calculate gwkm for {nc_files_idx}: {e}")
 
 
 # %%
@@ -288,6 +352,32 @@ save_stats_dict(costs_dict, "costs_dict", sdir)
 
 to_csv_nafix(load_avg_marginal_price, sdir / "load_avg_marginal_price.csv")
 print(f"Saved load_avg_marginal_price to {sdir / 'load_avg_marginal_price.csv'}")
+
+to_csv_nafix(stores, sdir / "stores.csv")
+print(f"Saved stores to {sdir / 'stores.csv'}")
+
+save_stats_dict(gwkm_dict, "gwkm_dict", sdir)
+
+# Prepare marginal prices for visualization: long-form with scen column, all bus carriers
+plot_summary_config = yaml.safe_load(Path("post_processing/plot_summary.yaml").read_text())
+index_levels_to_drop = plot_summary_config["data"]["index_levels_to_drop"]
+scen_filter = plot_summary_config["data"]["scen_filter"]
+scen_col_func_name = plot_summary_config["data"]["scen_col_function"]
+
+set_scen_col = get_scen_col_function(scen_col_func_name)
+
+available_countries = nc_files.index.get_level_values("country").unique().tolist()
+available_years = nc_files.index.get_level_values("year").unique().tolist()
+idx_group_all = idx_slice[[run_name_prefix], :, available_countries, available_years]
+
+marginal_prices_prepared = prepare_dataframe(
+    load_avg_marginal_price, idx_group_all, index_levels_to_drop, set_scen_col, drop_zero=False
+)
+if scen_filter:
+    marginal_prices_prepared = marginal_prices_prepared.query("scen in @scen_filter")
+
+to_csv_nafix(marginal_prices_prepared, sdir / "marginal_prices_prepared.csv")
+print(f"Saved marginal_prices_prepared to {sdir / 'marginal_prices_prepared.csv'}")
 
 
 # %%

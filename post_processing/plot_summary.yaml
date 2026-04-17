@@ -5,15 +5,15 @@
 # RUN CONFIGURATION
 # ============================================================================
 run:
-  name_prefix: "MAPaper"  # Experiment name prefix
-  summary_version: "v6"   # Summary directory version
+  name_prefix: "WSA"  # Experiment name prefix
+  summary_version: "v1"   # Summary directory version
   
 # ============================================================================
 # DATA SELECTION
 # ============================================================================
 data:
-  countries: ['MA']  # Countries to plot: MA, EG, ZA, CL
-  years: [2035]      # Years to include in analysis
+  countries: [MA]  # Countries to plot: MA, EG, ZA, CL
+  years: [2050]      # Years to include in analysis
   
   # Index levels to drop from multiindex when creating scenario labels
   index_levels_to_drop:
@@ -27,11 +27,19 @@ data:
     - "eopts"
   
   # Scenario filtering (set to false for no filtering, or list of scenario names)
-  scen_filter: false  # Example: ['AB', 'AT', 'AT-50EX', 'AT-0EX']
+  # scen_filter: ['AT', 'AT-50EX', 'AT-0EX'] # false  # Example: ['AB', 'AT', 'AT-50EX', 'AT-0EX']
+  scen_filter: []#['AB', 'AT'] 
   scen_order: []      # Custom ordering of scenarios in plots (empty = automatic)
   
   # Scenario column function to use: "DKS" or "MAPaper"
-  scen_col_function: "MAPaper"
+  scen_col_function: "WSA"
+
+  # ISO2 country code → full country name mapping
+  iso2_to_name:
+    CL: "Chile"
+    EG: "Egypt"
+    MA: "Morocco"
+    ZA: "South Africa"
 
 # ============================================================================
 # PLOT DIMENSIONS
@@ -41,7 +49,7 @@ plot:
   heights:
     small: 300      # For single-variable charts (e.g., H2 capacity)
     medium: 500     # For standard charts
-    large: 600      # For complex charts with many variables
+    large: 700      # For complex charts with many variables
   
   # Default figure keyword arguments (passed to plotly express)
   default_kwargs:
@@ -52,6 +60,22 @@ plot:
     barmode: "relative"
     text: "value"
     text_auto: ".0f"
+
+  # Flipped figure keyword arguments (horizontal bars, scenarios on y-axis)
+  flipped_kwargs:
+    x: "value"
+    y: "scen"
+    color: "variable"
+    facet_row: "year"
+    orientation: "h"
+    barmode: "relative"
+    text_auto: ".0f"
+
+  # Heights for flipped charts (taller to accommodate scenarios on y-axis)
+  flipped_heights:
+    small: 500
+    medium: 900
+    large: 1200
 
 # ============================================================================
 # CARRIER CONFIGURATIONS
@@ -66,7 +90,11 @@ carriers:
     - "co2 stored"
     - "co2"
     - "NH3"
+    - "methanol"
     - "HBI"
+    - "H2O"        # h2g-vis naming
+    - "purewater"  # DKS naming
+    - "seawater"   # DKS naming
   
   # Which carriers to load from optimal_capacity_dict
   capacity:
@@ -92,7 +120,7 @@ charts:
     rename_function: "rename_electricity"
     post_process: "rename_to_upper_case"
     labels:
-      value: "Electricity supply [TWh<sub>el</sub>]"
+      value: "Electricity supply (TWh<sub>el</sub>)"
       year: ""
       variable: ""
       scen: ""
@@ -108,7 +136,7 @@ charts:
     rename_function: "rename_electricity"
     post_process: "rename_to_upper_case"
     labels:
-      value: "Electricity consumption [TWh<sub>el</sub>]"
+      value: "Electricity consumption (TWh<sub>el</sub>)"
       year: ""
       variable: ""
       scen: ""
@@ -122,7 +150,7 @@ charts:
     split_supply_demand: false
     rename_function: "rename_h2"
     labels:
-      value: "GH2 balance [TWh<sub>H2</sub>]"
+      value: "GH2 balance (TWh<sub>H2</sub>)"
       year: ""
       variable: ""
       scen: ""
@@ -138,7 +166,7 @@ charts:
     rename_function: "rename_oil"
     filter_zeros: true
     labels:
-      value: "Liquid fuel balance [TWh]"
+      value: "Liquid fuel balance (TWh)"
       year: ""
       variable: ""
       scen: ""
@@ -153,7 +181,7 @@ charts:
     split_supply_demand: false
     rename_function: "rename_gas"
     labels:
-      value: "CH4 balance [TWh]"
+      value: "CH4 balance (TWh)"
       year: ""
       variable: ""
       scen: ""
@@ -182,12 +210,67 @@ charts:
     chart_type: "bar"
     split_supply_demand: false
     labels:
-      value: "CO2 emissions [Mt<sub>CO2</sub>]"
+      value: "CO2 emissions (Mt<sub>CO2</sub>)"
       year: ""
       scen: ""
     fig_name: "co2_emissions_mt"
     height: "medium"
   
+  water_balance:
+    carrier: "H2O"
+    data_source: "balance"
+    chart_type: "bar_with_negatives"
+    split_supply_demand: false
+    labels:
+      value: "Water balance (TWh)"
+      year: ""
+      variable: ""
+      scen: ""
+    fig_name: "water_balance_TWh"
+    height: "medium"
+    add_legend_groups: true
+
+  purewater_balance:
+    carrier: "purewater"
+    data_source: "balance"
+    chart_type: "bar_with_negatives"
+    split_supply_demand: false
+    labels:
+      value: "Purewater balance (TWh)"
+      year: ""
+      variable: ""
+      scen: ""
+    fig_name: "purewater_balance_TWh"
+    height: "medium"
+    add_legend_groups: true
+
+  seawater_balance:
+    carrier: "seawater"
+    data_source: "balance"
+    chart_type: "bar_with_negatives"
+    split_supply_demand: false
+    labels:
+      value: "Seawater balance (TWh)"
+      year: ""
+      variable: ""
+      scen: ""
+    fig_name: "seawater_balance_TWh"
+    height: "medium"
+    add_legend_groups: true
+
+  stores_capacity:
+    data_source: "stores"
+    chart_type: "bar"
+    split_supply_demand: false
+    rename_function: "rename_stores"
+    labels:
+      value: "Storage volume capacity (GWh)"
+      year: ""
+      variable: ""
+      scen: ""
+    fig_name: "storage_capacity_GWh"
+    height: "medium"
+
   electricity_capacity:
     carrier: "AC"
     data_source: "capacity"
@@ -195,9 +278,9 @@ charts:
     split_supply_demand: false
     rename_function: "rename_electricity"
     post_process: "rename_to_upper_case"
-    filter_threshold: 4000  # Drop load shedding capacity
+    drop_load_shedding: true 
     labels:
-      value: "Installed capacity [GW<sub>el</sub>]"
+      value: "Installed capacity (GW<sub>el</sub>)"
       year: ""
       variable: ""
       scen: ""
@@ -210,9 +293,9 @@ charts:
     chart_type: "bar_single"
     split_supply_demand: false
     rename_function: "rename_h2"
-    filter_threshold: 4000
+    drop_load_shedding: true 
     labels:
-      value: "Installed capacity [GW<sub>H2</sub>]"
+      value: "Installed capacity (GW<sub>H2</sub>)"
       year: ""
       variable: ""
       scen: ""
@@ -221,6 +304,21 @@ charts:
     text_auto: ".1f"
     color_discrete_map:
       "H2 Electrolysis": "#179c7d"
+      "Steam reforming": "#d3c7ae"
+
+  h2o_cost_breakdown:
+    chart_type: "bar"
+    color_discrete_map:
+      # DKS naming
+      "seawater desalination": "#39c1cd"
+      "seawater":              "#a6bbc8"
+      # h2g-vis naming
+      "desalination":         "#39c1cd"
+      "H2O pipeline":         "#4cc2a6"
+      "H2O store":            "#836bad"
+      "H2O store charger":    "#669db2"
+      "H2O store discharger": "#a6bbc8"
+      "H2O generator":        "#179c7d"
 
 # ============================================================================
 # STYLING PRESETS
