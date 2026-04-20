@@ -241,7 +241,18 @@ def load_network(import_name=None, custom_components=None):
     pypsa.Network
     """
     import pypsa
-    from pypsa.descriptors import Dict
+    try:
+        from pypsa.descriptors import Dict
+    except ImportError:
+        class Dict(dict):
+            """Attribute-access dict; drop-in for removed pypsa.descriptors.Dict."""
+            def __getattr__(self, key):
+                try: return self[key]
+                except KeyError: raise AttributeError(key)
+            def __setattr__(self, key, value): self[key] = value
+            def __delattr__(self, key):
+                try: del self[key]
+                except KeyError: raise AttributeError(key)
 
     override_components = None
     override_component_attrs = None
@@ -564,7 +575,18 @@ def mock_snakemake(
     import os
 
     import snakemake as sm
-    from pypsa.descriptors import Dict
+    try:
+        from pypsa.descriptors import Dict
+    except ImportError:
+        class Dict(dict):
+            """Attribute-access dict; drop-in for removed pypsa.descriptors.Dict."""
+            def __getattr__(self, key):
+                try: return self[key]
+                except KeyError: raise AttributeError(key)
+            def __setattr__(self, key, value): self[key] = value
+            def __delattr__(self, key):
+                try: del self[key]
+                except KeyError: raise AttributeError(key)
     from snakemake.script import Snakemake
 
     script_dir = Path(__file__).parent.resolve()
