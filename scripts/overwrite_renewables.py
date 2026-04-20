@@ -81,9 +81,10 @@ if __name__ == "__main__":
         to_drop = n.generators.query("carrier in @carriers and bus in @buses").index
         n.mremove("Generator", to_drop)
 
+        filepath = Path(rootpath) / Path(snakemake.params.custom_data_renewables_path)
+
         for car in carriers:                        
             for resource_class in resource_classes:
-                filepath = Path(rootpath) / Path(snakemake.params.custom_data_renewables_path)
                 gens = (
                     pd.read_csv(
                         filepath / f"{resource_class}{car}-{year}.csv",
@@ -110,7 +111,7 @@ if __name__ == "__main__":
                 if not missing_indices.empty:
                     raise ValueError(f"The following gens.index values are missing in p_max_pu.columns: {missing_indices.tolist()}")
 
-                buses = gens["bus"].values
+                gen_buses = gens["bus"].values
                 
                 # if not snakemake.params.custom_data_renewables.get("overwrite_costs", False):
                 #     # If overwrite_costs is False, use the costs used in the previous rules, saved in resources folder
@@ -129,8 +130,8 @@ if __name__ == "__main__":
 
                 n.madd(
                     "Generator",
-                    buses + " " + resource_class + car,
-                    bus=buses,
+                    gen_buses + " " + resource_class + car,
+                    bus=gen_buses,
                     carrier=car,
                     p_nom_extendable=True,
                     p_nom_min=gens["p_nom_min"], #gens["p_nom_min"].where(gens["p_nom_min"] > 20, 0).round(0),
