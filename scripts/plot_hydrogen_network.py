@@ -81,13 +81,13 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="Co2L0.885",
-            planning_horizons="2030",
+            opts="Co2L0.80",
+            planning_horizons="2035",
             sopts="1H",
-            discountrate=0.071,
+            discountrate=0.090,
             demand="RF",
-            eopts="NH3v0.5+MEOHv0.5",
-        )
+            eopts="H2v1.0+HBIv0.5",
+            )
 
     # scenario:
 

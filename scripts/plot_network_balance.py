@@ -81,15 +81,16 @@ if __name__ == "__main__":
             simpl="",
             clusters="10",
             ll="v1.1",
-            opts="", #Co2L1.09
+            opts="Co2L0.80", #Co2L1.09
             planning_horizons="2035",
             sopts="1H",
-            discountrate=0.078,
-            demand="Exp",
-            eopts="H2v1.0",
+            discountrate=0.090,
+            demand="RF",
+            eopts="H2v1.0+HBIv0.5",
         )
         
     bus_size_factor={"2030": 2e1, "2035": "auto", "2050":"auto"}[snakemake.wildcards.planning_horizons] #1.5e2
+    bus_size_factor={"2030": 2e1, "2035": 100, "2050":"auto"}[snakemake.wildcards.planning_horizons] #1.5e2
 
     branch_width_factor = {"2030": 1e2, "2035": "auto", "2050": "auto"}[snakemake.wildcards.planning_horizons]
     branch_flow_factor = 7e8 #3e4

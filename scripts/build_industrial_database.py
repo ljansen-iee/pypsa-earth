@@ -488,18 +488,21 @@ def create_paper_df():
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
+        import os
+        os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
         from _helpers import mock_snakemake
 
         snakemake = mock_snakemake(
             "build_industrial_database",
             simpl="",
-            clusters="4",
-            ll="c1",
-            opts="Co2L-4H",
+            clusters="10",
+            ll="v1.2",
+            opts="Co2L0.97",
             planning_horizons="2030",
-            sopts="144H",
-            discountrate=0.071,
-            demand="RF",
+            sopts="1H",
+            discountrate=0.084,
+            demand="EL",
         )
 
     industrial_database_steel = create_steel_db()
