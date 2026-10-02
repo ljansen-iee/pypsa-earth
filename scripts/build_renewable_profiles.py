@@ -201,7 +201,12 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import progressbar as pgb
+import rasterio
 import xarray as xr
+from rasterio.features import geometry_mask
+from rasterio.warp import transform as transform_coords
+from rasterio.windows import Window, from_bounds
+from scipy.ndimage import distance_transform_edt
 from _helpers import BASE_DIR, configure_logging, create_logger
 from add_electricity import load_powerplants
 from dask.distributed import Client
@@ -216,6 +221,116 @@ logger = create_logger(__name__)
 COPERNICUS_CRS = "EPSG:4326"
 GEBCO_CRS = "EPSG:4326"
 PPL_CRS = "EPSG:4326"
+
+
+def suitable_score(values, threshold, nodata):
+    return np.isfinite(values) & (values != nodata) & (values >= threshold)
+
+
+def split_quality_classes(
+    availability, regions, cutout, raster_path, threshold, top_fraction,
+    method="suitability_score", technology=None,
+):
+    if not 0 < top_fraction < 1:
+        raise ValueError("resource_quality_classes.top_fraction must be between 0 and 1")
+    if method not in {"suitability_score", "weather"}:
+        raise ValueError(
+            "resource_quality_classes.method must be 'suitability_score' or 'weather'"
+        )
+    top = xr.zeros_like(availability)
+    rest = xr.zeros_like(availability)
+    if method == "weather":
+        if technology == "onwind":
+            quality_metric = cutout.data["wnd100m"].mean("time")
+        elif technology == "solar":
+            quality_metric = (
+                cutout.data["influx_direct"] + cutout.data["influx_diffuse"]
+            ).mean("time")
+        else:
+            raise ValueError("Weather quality classes support only solar and onwind")
+        quality_metric = quality_metric.transpose("y", "x").values
+        cell_area = cutout.grid.to_crs("ESRI:54009").area.to_numpy().reshape(cutout.shape)
+
+        for bus in regions.index:
+            bus_availability = availability.sel(bus=bus).values
+            valid = (bus_availability > 0) & np.isfinite(quality_metric)
+            if not valid.any():
+                continue
+            rows, cols = np.where(valid)
+            weights = bus_availability[valid] * cell_area[valid]
+            ranking = np.argsort(-quality_metric[valid], kind="stable")
+            target_area = weights.sum() * top_fraction
+            selected_area = np.zeros_like(weights)
+            remaining_area = target_area
+            for position in ranking:
+                contribution = min(weights[position], remaining_area)
+                selected_area[position] = contribution
+                remaining_area -= contribution
+                if remaining_area <= max(target_area, 1.0) * 1e-12:
+                    break
+            share = np.zeros(cutout.shape, dtype=np.float32)
+            share[rows, cols] = selected_area / weights
+            original = availability.sel(bus=bus)
+            top.loc[dict(bus=bus)] = original * share
+            rest.loc[dict(bus=bus)] = original * (1 - share)
+    else:
+        with rasterio.open(raster_path) as raster:
+            projected = regions.to_crs(raster.crs)
+            for bus, region in projected.geometry.items():
+                window = from_bounds(*region.bounds, transform=raster.transform)
+                window = window.round_offsets().round_lengths().intersection(
+                    Window(0, 0, raster.width, raster.height)
+                )
+                values = raster.read(1, window=window, masked=True)
+                transform = raster.window_transform(window)
+                eligible = geometry_mask(
+                    [region], out_shape=values.shape, transform=transform, invert=True
+                ) & suitable_score(values.data, threshold, raster.nodata) & ~np.ma.getmaskarray(values)
+                positions = np.flatnonzero(eligible)
+                if not len(positions):
+                    if bool((availability.sel(bus=bus) > 0).any()):
+                        raise ValueError(f"No eligible suitability pixels for resource classes at {bus}")
+                    continue
+                ranking = positions[np.argsort(-values.data.flat[positions], kind="stable")]
+                best = np.zeros(values.size, dtype=np.float32)
+                top_pixel_count = len(ranking) * top_fraction
+                full_pixels = int(top_pixel_count)
+                best[ranking[:full_pixels]] = 1
+                if full_pixels < len(ranking):
+                    best[ranking[full_pixels]] = top_pixel_count - full_pixels
+                pixel_rows, pixel_cols = np.unravel_index(positions, values.shape)
+                east, north = rasterio.transform.xy(transform, pixel_rows, pixel_cols)
+                longitude, latitude = transform_coords(raster.crs, cutout.crs, east, north)
+                cell_cols = np.floor((np.asarray(longitude) - cutout.transform.c) / cutout.transform.a).astype(int)
+                cell_rows = np.floor((np.asarray(latitude) - cutout.transform.f) / cutout.transform.e).astype(int)
+                within = (
+                    (cell_rows >= 0) & (cell_rows < cutout.shape[0])
+                    & (cell_cols >= 0) & (cell_cols < cutout.shape[1])
+                )
+                total = np.zeros(cutout.shape, dtype=np.float32)
+                top_pixels = np.zeros(cutout.shape, dtype=np.float32)
+                np.add.at(total, (cell_rows[within], cell_cols[within]), 1)
+                np.add.at(top_pixels, (cell_rows[within], cell_cols[within]), best[positions[within]])
+                original = availability.sel(bus=bus)
+                share = np.divide(top_pixels, total, out=np.zeros_like(total), where=total > 0)
+                boundary_cells = (original.values > 0) & (total == 0)
+                if boundary_cells.any():
+                    if not total.any():
+                        raise ValueError(f"Eligible cutout cells have no scored pixels at {bus}")
+                    nearest = distance_transform_edt(
+                        total == 0, return_distances=False, return_indices=True,
+                    )
+                    share[boundary_cells] = share[tuple(nearest[:, boundary_cells])]
+                top.loc[dict(bus=bus)] = original * share
+                rest.loc[dict(bus=bus)] = original * (1 - share)
+
+    names = list(regions.index)
+    top = top.assign_coords(bus=[f"{bus}_q1" for bus in names])
+    rest = rest.assign_coords(bus=[f"{bus}_q2" for bus in names])
+    quality_regions = pd.concat([regions, regions]).copy()
+    quality_regions.index = list(top.bus.values) + list(rest.bus.values)
+    quality_regions.index.name = "bus"
+    return xr.concat([top, rest], dim="bus"), quality_regions
 
 
 def check_cutout_match(cutout, geodf):
@@ -648,41 +763,58 @@ if __name__ == "__main__":
 
         excluder = atlite.ExclusionContainer(crs=area_crs, res=100)
 
-        if "natura" in config and config["natura"]:
-            excluder.add_raster(paths.natura, nodata=0, allow_no_overlap=True)
-
-        if "copernicus" in config and config["copernicus"]:
-            copernicus = config["copernicus"]
+        if "suitability" in config:
+            if snakemake.wildcards.technology not in ("solar", "onwind"):
+                raise ValueError("Suitability rasters are supported only for solar and onwind")
+            threshold = float(config["suitability"]["threshold"])
+            if not np.isfinite(threshold):
+                raise ValueError("Suitability threshold must be finite")
+            with rasterio.open(paths.suitability) as raster:
+                if raster.count != 1 or raster.crs is None or raster.nodata is None:
+                    raise ValueError("Suitability raster must have one band, a CRS and nodata")
+                nodata = raster.nodata
             excluder.add_raster(
-                paths.copernicus,
-                codes=copernicus["grid_codes"],
+                paths.suitability,
+                codes=functools.partial(suitable_score, threshold=threshold, nodata=nodata),
                 invert=True,
-                crs=COPERNICUS_CRS,
+                nodata=nodata,
             )
-            if "distance" in copernicus and config["copernicus"]["distance"] > 0:
+        else:
+            if "natura" in config and config["natura"]:
+                excluder.add_raster(paths.natura, nodata=0, allow_no_overlap=True)
+
+            if "copernicus" in config and config["copernicus"]:
+                copernicus = config["copernicus"]
                 excluder.add_raster(
                     paths.copernicus,
-                    codes=copernicus["distance_grid_codes"],
-                    buffer=copernicus["distance"],
+                    codes=copernicus["grid_codes"],
+                    invert=True,
                     crs=COPERNICUS_CRS,
                 )
+                if "distance" in copernicus and config["copernicus"]["distance"] > 0:
+                    excluder.add_raster(
+                        paths.copernicus,
+                        codes=copernicus["distance_grid_codes"],
+                        buffer=copernicus["distance"],
+                        crs=COPERNICUS_CRS,
+                    )
 
-        if "max_depth" in config:
-            # lambda not supported for atlite + multiprocessing
-            # use named function np.greater with partially frozen argument instead
-            # and exclude areas where: -max_depth > grid cell depth
-            func_depth = functools.partial(np.greater, -config["max_depth"])
-            excluder.add_raster(
-                paths.gebco, codes=func_depth, crs=GEBCO_CRS, nodata=-1000
-            )
+            if "max_depth" in config:
+                # lambda not supported for atlite + multiprocessing
+                # use named function np.greater with partially frozen argument instead
+                # and exclude areas where: -max_depth > grid cell depth
+                func_depth = functools.partial(np.greater, -config["max_depth"])
+                excluder.add_raster(
+                    paths.gebco, codes=func_depth, crs=GEBCO_CRS, nodata=-1000
+                )
 
-        if "min_shore_distance" in config:
-            buffer = config["min_shore_distance"]
-            excluder.add_geometry(paths.country_shapes, buffer=buffer)
+            if "min_shore_distance" in config:
+                buffer = config["min_shore_distance"]
+                excluder.add_geometry(paths.country_shapes, buffer=buffer)
 
-        if "max_shore_distance" in config:
-            buffer = config["max_shore_distance"]
-            excluder.add_geometry(paths.country_shapes, buffer=buffer, invert=True)
+            if "max_shore_distance" in config:
+                buffer = config["max_shore_distance"]
+                excluder.add_geometry(paths.country_shapes, buffer=buffer, invert=True)
 
         kwargs = dict(nprocesses=nprocesses, disable_progressbar=noprogress)
         if noprogress:
@@ -694,6 +826,22 @@ if __name__ == "__main__":
             logger.info(f"Completed availability calculation ({duration:2.2f}s)")
         else:
             availability = cutout.availabilitymatrix(regions, excluder, **kwargs)
+        if config.get("resource_quality_classes"):
+            quality_settings = config["resource_quality_classes"]
+            quality_method = quality_settings.get("method", "suitability_score")
+            if quality_method == "suitability_score" and "suitability" not in config:
+                raise ValueError(
+                    "Suitability-score quality classes require a suitability raster"
+                )
+            availability, regions = split_quality_classes(
+                availability, regions, cutout,
+                paths.suitability if "suitability" in config else None,
+                threshold if "suitability" in config else None,
+                float(quality_settings["top_fraction"]),
+                method=quality_method,
+                technology=snakemake.wildcards.technology,
+            )
+            buses = regions.index
         area = cutout.grid.to_crs(area_crs).area / 1e6
         area = xr.DataArray(
             area.values.reshape(cutout.shape), [cutout.coords["y"], cutout.coords["x"]]
@@ -786,6 +934,11 @@ if __name__ == "__main__":
             min_p_max_pu = config["clip_p_max_pu"]
             ds["profile"] = ds["profile"].where(ds["profile"] >= min_p_max_pu, 0)
 
+        if config.get("resource_quality_classes"):
+            ds = ds.assign_coords(
+                site=("bus", [bus.rsplit("_q", 1)[0] for bus in ds.bus.values]),
+                quality_class=("bus", [f"q{bus.rsplit('_q', 1)[1]}" for bus in ds.bus.values]),
+            )
         ds.to_netcdf(snakemake.output.profile)
 
     if client is not None:
