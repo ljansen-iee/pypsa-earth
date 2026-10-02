@@ -670,11 +670,15 @@ def force_ac_lines(df, col="tag_frequency"):
     return df
 
 
-def add_buses_to_empty_countries(country_list, fp_country_shapes, buses):
+def add_buses_to_empty_countries(
+    country_list, fp_country_shapes, buses, fallback_voltage=220000
+):
     """
     Function to add a bus for countries missing substation data.
     """
-    country_shapes = gpd.read_file(fp_country_shapes).set_index("name")["geometry"]
+    country_shapes = gpd.read_file(fp_country_shapes).dissolve(
+        by="name", as_index=True
+    )["geometry"]
     bus_country_list = buses["country"].unique().tolist()
 
     # it may happen that bus_country_list contains entries not relevant as a country name (e.g. "not found")
@@ -693,7 +697,7 @@ def add_buses_to_empty_countries(country_list, fp_country_shapes, buses):
         length = len(no_data_countries)
         df = gpd.GeoDataFrame(
             {
-                "voltage": [220000] * length,
+                "voltage": [fallback_voltage] * length,
                 "country": no_data_countries_shape["name"],
                 "lon": no_data_countries_shape["geometry"].centroid.x,
                 "lat": no_data_countries_shape["geometry"].centroid.y,
@@ -740,6 +744,7 @@ def built_network(
     geo_crs,
     distance_crs,
     force_ac=False,
+    fallback_bus_voltage_kv=None,
 ):
     logger.info("Stage 1/5: Read input data")
     osm_clean_columns = read_osm_config("osm_clean_columns")
@@ -775,7 +780,14 @@ def built_network(
         logger.info("Stage 3/5: Avoid nodes overpassing lines: disabled")
 
     # Add bus to countries with no buses
-    buses = add_buses_to_empty_countries(countries_config, inputs.country_shapes, buses)
+    fallback_voltage = (
+        1000 * fallback_bus_voltage_kv
+        if fallback_bus_voltage_kv is not None
+        else 220000
+    )
+    buses = add_buses_to_empty_countries(
+        countries_config, inputs.country_shapes, buses, fallback_voltage
+    )
 
     # METHOD to merge buses with same voltage and within tolerance Step 4/5
     if build_osm_network_config.get("group_close_buses", False):
@@ -847,4 +859,5 @@ if __name__ == "__main__":
         geo_crs,
         distance_crs,
         force_ac=force_ac,
+        fallback_bus_voltage_kv=build_osm_network.get("fallback_bus_voltage_kv"),
     )

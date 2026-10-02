@@ -388,15 +388,21 @@ def _set_electrical_parameters_converters(links_config, converters):
 
 def _set_lines_s_nom_from_linetypes(n):
     # Info: n.line_types is a lineregister from pypsa/pandapowers
+    line_v_nom = (
+        n.lines["v_nom"]
+        if "v_nom" in n.lines
+        else n.lines["bus0"].map(n.buses["v_nom"])
+    )
+    line_v_nom_times_parallel = line_v_nom * n.lines["num_parallel"]
     n.lines["s_nom"] = (
         np.sqrt(3)
         * n.lines["type"].map(n.line_types.i_nom)
-        * n.lines.eval("v_nom * num_parallel")
+        * line_v_nom_times_parallel
     )
     # Re-define s_nom for DC lines
     n.lines.loc[n.lines["carrier"] == "DC", "s_nom"] = n.lines["type"].map(
         n.line_types.i_nom
-    ) * n.lines.eval("v_nom * num_parallel")
+    ) * line_v_nom_times_parallel
 
 
 def _remove_dangling_branches(branches, buses):

@@ -912,7 +912,7 @@ def load_network_data(network_asset, data_options):
 def clean_data(
     input_files,
     output_files,
-    africa_shape,
+    microgrid_shapes,
     geo_crs,
     distance_crs,
     data_options,
@@ -969,10 +969,17 @@ def clean_data(
 
         logger.info("Select lines and cables in the region of interest")
 
-        # drop lines crossing regions with and without the region under interest
-        df_all_lines = df_all_lines[df_all_lines.geometry.boundary.within(africa_shape)]
-
-        df_all_lines = gpd.GeoDataFrame(df_all_lines, geometry="geometry")
+        # Keep only line segments within the configured microgrid extents. OSM
+        # ways can extend beyond an Overpass bbox, so clip rather than testing
+        # whether both endpoints happen to fall inside a continental outline.
+        microgrid_area = microgrid_shapes.geometry.union_all()
+        df_all_lines["geometry"] = df_all_lines.geometry.intersection(microgrid_area)
+        df_all_lines = df_all_lines[
+            df_all_lines.geometry.notna() & ~df_all_lines.geometry.is_empty
+        ].explode(index_parts=False)
+        df_all_lines = filter_lines_by_geometry(
+            gpd.GeoDataFrame(df_all_lines, geometry="geometry", crs=microgrid_shapes.crs)
+        )
 
         # set the country name by the shape
         if names_by_shapes:
@@ -1106,7 +1113,7 @@ if __name__ == "__main__":
     input_files = snakemake.input
     output_files = snakemake.output
 
-    africa_shape = gpd.read_file(snakemake.input.africa_shape)["geometry"].iloc[0]
+    microgrid_shapes = gpd.read_file(snakemake.input.country_shapes)
 
     # only when country names are defined by shapes, load the info
     if names_by_shapes:
@@ -1128,7 +1135,7 @@ if __name__ == "__main__":
     clean_data(
         input_files,
         output_files,
-        africa_shape,
+        microgrid_shapes,
         geo_crs,
         distance_crs,
         data_options,

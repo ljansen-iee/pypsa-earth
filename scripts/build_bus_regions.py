@@ -161,9 +161,9 @@ if __name__ == "__main__":
 
     n = pypsa.Network(snakemake.input.base_network)
 
-    country_shapes = gpd.read_file(snakemake.input.country_shapes).set_index("name")[
-        "geometry"
-    ]
+    country_shapes = gpd.read_file(snakemake.input.country_shapes).dissolve(
+        by="name"
+    )["geometry"]
 
     offshore_shapes = gpd.read_file(snakemake.input.offshore_shapes)
 
